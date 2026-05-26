@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 import os
 
 from backend.config import settings
@@ -31,15 +30,6 @@ app.include_router(income.router)
 app.include_router(ai.router)
 app.include_router(imports.router)
 
-frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
-if os.path.exists(frontend_dir):
-    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
-
-    @app.get("/")
-    def serve_frontend():
-        return FileResponse(os.path.join(frontend_dir, "index.html"))
-
-
 @app.get("/api/health")
 def health():
     return {"status": "ok", "mode": settings.user_mode}
@@ -58,6 +48,12 @@ def on_startup():
         seed_categories(db)
     finally:
         db.close()
+
+
+# 前端静态文件 — 必须在所有 API 路由注册后再挂载，API 路由优先匹配
+_frontend = os.path.join(os.path.dirname(__file__), "..", "frontend")
+if os.path.exists(_frontend):
+    app.mount("/", StaticFiles(directory=_frontend, html=True), name="frontend")
 
 
 if __name__ == "__main__":
