@@ -38,4 +38,7 @@ const API = {
   income: () => API.get('/api/income'),
   updateIncome: (body) => API.put('/api/income', body),
   aiChat: (body) => API.post('/api/ai/chat', body),
+  aiAnalysis: () => API.post('/api/ai/analysis', {}),
+  aiHistory: () => API.get('/api/ai/history'),
+  aiClearHistory: () => API.delete('/api/ai/history'),
 };

@@ -187,15 +187,25 @@
   <!-- ══════════════ AI ══════════════ -->
   <div id="page-ai" class="page">
     <div class="page-header">
-      <h1>🤖 AI 顾问</h1>
-      <p>基于你的真实财务数据提供建议</p>
+      <div class="flex-between">
+        <div>
+          <h1>🤖 AI 顾问</h1>
+          <p>基于你的真实账单数据提供建议</p>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="clearAIHistory()" style="flex-shrink:0">清空</button>
+      </div>
+    </div>
+
+    <div class="ai-action-bar">
+      <button id="btn-analysis" class="btn btn-primary btn-sm" onclick="runAnalysis()">📊 生成分析报告</button>
+      <span class="text-sm text-muted">由 Claude Sonnet 深度分析</span>
     </div>
 
     <div class="quick-prompts">
-      <span class="quick-prompt" onclick="sendQuick('分析上月消费')">📊 上月消费分析</span>
-      <span class="quick-prompt" onclick="sendQuick('本月预算还剩多少？')">💰 预算余额</span>
-      <span class="quick-prompt" onclick="sendQuick('帮我分析储蓄目标进度')">🎯 目标追踪</span>
-      <span class="quick-prompt" onclick="sendQuick('哪里可以节省开支？')">💡 省钱建议</span>
+      <span class="quick-prompt" onclick="sendQuick('分析本月消费，哪里花多了？')">📊 本月消费分析</span>
+      <span class="quick-prompt" onclick="sendQuick('本月预算执行情况怎么样？')">💰 预算执行</span>
+      <span class="quick-prompt" onclick="sendQuick('帮我分析储蓄目标进度，能按时完成吗？')">🎯 目标追踪</span>
+      <span class="quick-prompt" onclick="sendQuick('哪里可以削减开支，每月能多存多少？')">💡 省钱建议</span>
     </div>
 
     <div id="ai-messages"></div>
