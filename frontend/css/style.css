@@ -108,6 +108,10 @@ body {
   margin-bottom: 14px;
 }
 
+/* ── Login overlay ── */
+#modal-login.open { display: flex; background: rgba(108,99,255,0.15); backdrop-filter: blur(4px); }
+#modal-login .modal { animation: fadeIn 0.25s ease; border-radius: var(--radius) !important; }
+
 /* ── Month Nav ── */
 .month-nav {
   display: flex; align-items: center; gap: 8px;

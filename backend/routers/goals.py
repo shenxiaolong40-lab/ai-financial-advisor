@@ -4,11 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db
+from backend.deps import get_current_user_id
 from backend.models import Goal
 
 router = APIRouter(prefix="/api/goals", tags=["goals"])
-
-DEFAULT_USER_ID = 1
 
 
 class GoalCreate(BaseModel):
@@ -26,13 +25,13 @@ class GoalUpdate(BaseModel):
 
 
 @router.get("")
-def list_goals(db: Session = Depends(get_db)):
-    return db.query(Goal).filter(Goal.user_id == DEFAULT_USER_ID).all()
+def list_goals(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    return db.query(Goal).filter(Goal.user_id == user_id).all()
 
 
 @router.post("", status_code=201)
-def create_goal(body: GoalCreate, db: Session = Depends(get_db)):
-    g = Goal(user_id=DEFAULT_USER_ID, **body.model_dump())
+def create_goal(body: GoalCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    g = Goal(user_id=user_id, **body.model_dump())
     db.add(g)
     db.commit()
     db.refresh(g)
@@ -40,9 +39,9 @@ def create_goal(body: GoalCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{goal_id}")
-def update_goal(goal_id: int, body: GoalUpdate, db: Session = Depends(get_db)):
+def update_goal(goal_id: int, body: GoalUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     g = db.get(Goal, goal_id)
-    if not g or g.user_id != DEFAULT_USER_ID:
+    if not g or g.user_id != user_id:
         raise HTTPException(404, "Goal not found")
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(g, k, v)
@@ -52,9 +51,9 @@ def update_goal(goal_id: int, body: GoalUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{goal_id}", status_code=204)
-def delete_goal(goal_id: int, db: Session = Depends(get_db)):
+def delete_goal(goal_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     g = db.get(Goal, goal_id)
-    if not g or g.user_id != DEFAULT_USER_ID:
+    if not g or g.user_id != user_id:
         raise HTTPException(404, "Goal not found")
     db.delete(g)
     db.commit()

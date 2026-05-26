@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from backend.config import settings
 from backend.models import Transaction, Budget, Goal, IncomeProfile, AISession, Category
 
-DEFAULT_USER_ID = 1
 CHAT_MODEL = "deepseek-chat"
 ANALYSIS_MODEL = "deepseek-chat"
 DEEPSEEK_BASE = "https://api.deepseek.com"
@@ -24,13 +23,13 @@ def _current_month() -> tuple:
     return start, end
 
 
-def _build_financial_context(db: Session) -> str:
+def _build_financial_context(db: Session, user_id: int) -> str:
     start, end = _current_month()
     now = datetime.now()
     month_label = f"{now.year}年{now.month}月"
 
     txns = db.query(Transaction).filter(
-        Transaction.user_id == DEFAULT_USER_ID,
+        Transaction.user_id == user_id,
         Transaction.date >= start,
         Transaction.date < end,
     ).all()
@@ -49,7 +48,7 @@ def _build_financial_context(db: Session) -> str:
         for k, v in sorted(cat_map.items(), key=lambda x: -x[1])
     ) or "  暂无支出数据"
 
-    budgets = db.query(Budget).filter(Budget.user_id == DEFAULT_USER_ID).all()
+    budgets = db.query(Budget).filter(Budget.user_id == user_id).all()
     budget_lines = []
     for b in budgets:
         if b.category_id:
@@ -64,7 +63,7 @@ def _build_financial_context(db: Session) -> str:
         budget_lines.append(f"  - {name}: 已用¥{spent:.0f}/上限¥{b.limit_amount:.0f}（{pct:.0f}%）{status}")
     budget_section = "\n".join(budget_lines) or "  暂无预算设置"
 
-    goals = db.query(Goal).filter(Goal.user_id == DEFAULT_USER_ID).all()
+    goals = db.query(Goal).filter(Goal.user_id == user_id).all()
     goal_lines = []
     for g in goals:
         pct = g.current_amount / g.target_amount * 100 if g.target_amount > 0 else 0
@@ -76,7 +75,7 @@ def _build_financial_context(db: Session) -> str:
         )
     goals_section = "\n".join(goal_lines) or "  暂无储蓄目标"
 
-    income_profile = db.query(IncomeProfile).filter(IncomeProfile.user_id == DEFAULT_USER_ID).first()
+    income_profile = db.query(IncomeProfile).filter(IncomeProfile.user_id == user_id).first()
     monthly_income_set = income_profile.monthly_income if income_profile else 0
     monthly_extra = income_profile.monthly_extra if income_profile else 0
     saving_rate = (balance / total_income * 100) if total_income > 0 else 0
@@ -93,10 +92,10 @@ def _build_financial_context(db: Session) -> str:
     )
 
 
-def _get_conversation_history(db: Session) -> list:
+def _get_conversation_history(db: Session, user_id: int) -> list:
     sessions = (
         db.query(AISession)
-        .filter(AISession.user_id == DEFAULT_USER_ID)
+        .filter(AISession.user_id == user_id)
         .order_by(AISession.created_at.desc())
         .limit(CONTEXT_ROUNDS * 2)
         .all()
@@ -105,15 +104,15 @@ def _get_conversation_history(db: Session) -> list:
     return [{"role": s.role, "content": s.content} for s in sessions if s.role in ("user", "assistant")]
 
 
-def _save_message(db: Session, role: str, content: str, tokens: int = 0):
-    msg = AISession(user_id=DEFAULT_USER_ID, role=role, content=content, tokens_used=tokens)
+def _save_message(db: Session, role: str, content: str, user_id: int, tokens: int = 0):
+    msg = AISession(user_id=user_id, role=role, content=content, tokens_used=tokens)
     db.add(msg)
     db.commit()
-    total = db.query(AISession).filter(AISession.user_id == DEFAULT_USER_ID).count()
+    total = db.query(AISession).filter(AISession.user_id == user_id).count()
     if total > 50:
         oldest = (
             db.query(AISession)
-            .filter(AISession.user_id == DEFAULT_USER_ID)
+            .filter(AISession.user_id == user_id)
             .order_by(AISession.created_at.asc())
             .limit(total - 50)
             .all()
@@ -145,15 +144,15 @@ async def _call_deepseek(system: str, messages: list, model: str, max_tokens: in
         return resp.json()
 
 
-async def chat(message: str, db: Session, deep: bool = False) -> dict:
+async def chat(message: str, db: Session, user_id: int = 1, deep: bool = False) -> dict:
     if not _key_valid():
         return {
             "reply": "未配置有效的 DEEPSEEK_API_KEY，请编辑 backend/.env 文件。",
             "tokens": 0,
         }
 
-    financial_context = _build_financial_context(db)
-    history = _get_conversation_history(db)
+    financial_context = _build_financial_context(db, user_id)
+    history = _get_conversation_history(db, user_id)
 
     system_prompt = (
         "你是一位专业的个人财务顾问，你直接访问用户的真实财务数据并给出精准建议。\n\n"
@@ -180,17 +179,17 @@ async def chat(message: str, db: Session, deep: bool = False) -> dict:
     reply = data["choices"][0]["message"]["content"]
     tokens = data.get("usage", {}).get("completion_tokens", 0)
 
-    _save_message(db, "user", message)
-    _save_message(db, "assistant", reply, tokens)
+    _save_message(db, "user", message, user_id)
+    _save_message(db, "assistant", reply, user_id, tokens)
 
     return {"reply": reply, "tokens": tokens, "model": CHAT_MODEL}
 
 
-async def generate_analysis(db: Session) -> dict:
+async def generate_analysis(db: Session, user_id: int = 1) -> dict:
     if not _key_valid():
         return {"report": "未配置有效的 DEEPSEEK_API_KEY，请编辑 backend/.env 文件。"}
 
-    financial_context = _build_financial_context(db)
+    financial_context = _build_financial_context(db, user_id)
 
     system_prompt = (
         "你是一位个人财务分析师。根据用户本月的财务数据，生成一份简洁的分析报告。\n\n"
@@ -216,5 +215,5 @@ async def generate_analysis(db: Session) -> dict:
         return {"report": f"网络错误：{str(e)}"}
 
     reply = data["choices"][0]["message"]["content"]
-    _save_message(db, "assistant", reply, data.get("usage", {}).get("completion_tokens", 0))
+    _save_message(db, "assistant", reply, user_id, data.get("usage", {}).get("completion_tokens", 0))
     return {"report": reply}

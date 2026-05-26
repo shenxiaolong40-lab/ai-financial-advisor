@@ -4,8 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>AI 财务顾问</title>
+  <meta name="theme-color" content="#6C63FF">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="财务顾问">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
+  </script>
 </head>
 <body>
 <div id="app">
@@ -442,6 +452,35 @@
     <div class="flex" style="gap:10px">
       <button class="btn btn-outline btn-block" onclick="closeModal('modal-account')">取消</button>
       <button class="btn btn-primary btn-block" onclick="saveAccount()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Login Modal (multi-user mode only) -->
+<div id="modal-login" class="modal-overlay" style="align-items:center">
+  <div class="modal" style="border-radius:var(--radius);max-width:400px;margin:16px">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:48px">💰</div>
+      <div style="font-size:22px;font-weight:800;margin-top:8px">AI 财务顾问</div>
+      <div style="font-size:13px;color:var(--text-3);margin-top:4px">登录以管理你的个人财务</div>
+    </div>
+    <div class="toggle-tabs" style="margin-bottom:20px">
+      <div class="toggle-tab active" onclick="switchAuthTab('login')">登录</div>
+      <div class="toggle-tab" onclick="switchAuthTab('register')">注册</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">邮箱</label>
+      <input type="email" id="auth-email" class="form-input" placeholder="your@email.com" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label class="form-label">密码</label>
+      <input type="password" id="auth-password" class="form-input" placeholder="至少 6 位" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doAuth()">
+    </div>
+    <div id="auth-error" class="hidden" style="color:var(--danger);font-size:13px;margin-bottom:12px;text-align:center"></div>
+    <button class="btn btn-primary btn-block" id="btn-auth" onclick="doAuth()">登录</button>
+    <div style="text-align:center;font-size:12px;color:var(--text-3);margin-top:16px">
+      首次使用？切换到「注册」创建账户
     </div>
   </div>
 </div>

@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from backend.database import get_db
+from backend.deps import get_current_user_id
 from backend.models import Category
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
-
-DEFAULT_USER_ID = 1
 
 SYSTEM_CATEGORIES = [
     {"name": "餐饮", "icon": "🍜", "parent_id": None},
@@ -22,9 +21,9 @@ SYSTEM_CATEGORIES = [
 
 
 @router.get("")
-def list_categories(db: Session = Depends(get_db)):
+def list_categories(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     cats = db.query(Category).filter(
-        (Category.user_id == None) | (Category.user_id == DEFAULT_USER_ID)
+        (Category.user_id == None) | (Category.user_id == user_id)
     ).all()
     return cats
 

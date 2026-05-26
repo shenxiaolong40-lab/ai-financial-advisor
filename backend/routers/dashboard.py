@@ -3,17 +3,22 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 from backend.database import get_db
+from backend.deps import get_current_user_id
 from backend.models import Transaction, Budget, Goal, IncomeProfile, Category
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
-DEFAULT_USER_ID = 1
+
+def _prev_month(year: int, m: int, n: int):
+    total = year * 12 + (m - 1) - n
+    return total // 12, total % 12 + 1
 
 
 @router.get("/summary")
 def get_summary(
-    month: Optional[str] = Query(None, description="YYYY-MM, defaults to current month"),
+    month: Optional[str] = Query(None),
     db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
 ):
     if not month:
         now = datetime.now()
@@ -24,7 +29,7 @@ def get_summary(
     end = date(year + 1, 1, 1) if m == 12 else date(year, m + 1, 1)
 
     txns = db.query(Transaction).filter(
-        Transaction.user_id == DEFAULT_USER_ID,
+        Transaction.user_id == user_id,
         Transaction.date >= start,
         Transaction.date < end,
     ).all()
@@ -33,9 +38,8 @@ def get_summary(
     total_expense = sum(t.amount for t in txns if t.type == "expense")
     balance = total_income - total_expense
 
-    # category breakdown for expenses
-    cat_map: dict[str, float] = {}
-    cat_icon_map: dict[str, str] = {}
+    cat_map: dict = {}
+    cat_icon_map: dict = {}
     for t in txns:
         if t.type == "expense":
             label = t.category.name if t.category else "其他"
@@ -48,8 +52,7 @@ def get_summary(
         for k, v in sorted(cat_map.items(), key=lambda x: -x[1])
     ]
 
-    # budget progress
-    budgets = db.query(Budget).filter(Budget.user_id == DEFAULT_USER_ID).all()
+    budgets = db.query(Budget).filter(Budget.user_id == user_id).all()
     budget_progress = []
     for b in budgets:
         if b.category_id:
@@ -70,8 +73,7 @@ def get_summary(
             "percent": round(spent / b.limit_amount * 100, 1) if b.limit_amount > 0 else 0,
         })
 
-    # goals snapshot
-    goals = db.query(Goal).filter(Goal.user_id == DEFAULT_USER_ID).all()
+    goals = db.query(Goal).filter(Goal.user_id == user_id).all()
     goals_snapshot = [
         {
             "id": g.id,
@@ -84,7 +86,6 @@ def get_summary(
         for g in goals
     ]
 
-    # recent 5 transactions
     recent = sorted(txns, key=lambda t: t.date, reverse=True)[:5]
     recent_txns = [
         {
@@ -100,7 +101,7 @@ def get_summary(
         for t in recent
     ]
 
-    income_profile = db.query(IncomeProfile).filter(IncomeProfile.user_id == DEFAULT_USER_ID).first()
+    income_profile = db.query(IncomeProfile).filter(IncomeProfile.user_id == user_id).first()
     monthly_income_set = income_profile.monthly_income if income_profile else 0
 
     return {
@@ -116,16 +117,11 @@ def get_summary(
     }
 
 
-def _prev_month(year: int, m: int, n: int):
-    """Return (year, month) n months before (year, m)."""
-    total = year * 12 + (m - 1) - n
-    return total // 12, total % 12 + 1
-
-
 @router.get("/trend")
 def get_trend(
     months: int = Query(6, ge=1, le=24),
     db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
 ):
     now = datetime.now()
     result = []
@@ -134,7 +130,7 @@ def get_trend(
         start = date(y, m, 1)
         end = date(y + 1, 1, 1) if m == 12 else date(y, m + 1, 1)
         txns = db.query(Transaction).filter(
-            Transaction.user_id == DEFAULT_USER_ID,
+            Transaction.user_id == user_id,
             Transaction.date >= start,
             Transaction.date < end,
         ).all()

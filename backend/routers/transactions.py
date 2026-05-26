@@ -5,18 +5,17 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from backend.database import get_db
+from backend.deps import get_current_user_id
 from backend.models import Transaction
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
-
-DEFAULT_USER_ID = 1
 
 
 class TransactionCreate(BaseModel):
     account_id: Optional[int] = None
     category_id: Optional[int] = None
     amount: float
-    type: str  # income / expense
+    type: str
     date: date
     description: str = ""
     merchant: str = ""
@@ -52,26 +51,23 @@ class TransactionOut(BaseModel):
 
 @router.get("")
 def list_transactions(
-    month: Optional[str] = Query(None, description="YYYY-MM"),
+    month: Optional[str] = Query(None),
     category_id: Optional[int] = None,
     type: Optional[str] = None,
     search: Optional[str] = None,
     page: int = 1,
     page_size: int = 50,
     db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
 ):
-    q = db.query(Transaction).filter(Transaction.user_id == DEFAULT_USER_ID)
+    q = db.query(Transaction).filter(Transaction.user_id == user_id)
 
     if month:
         year, m = int(month[:4]), int(month[5:7])
         from datetime import date as dt
         start = dt(year, m, 1)
-        if m == 12:
-            end = dt(year + 1, 1, 1)
-        else:
-            end = dt(year, m + 1, 1)
+        end = dt(year + 1, 1, 1) if m == 12 else dt(year, m + 1, 1)
         q = q.filter(Transaction.date >= start, Transaction.date < end)
-
     if category_id:
         q = q.filter(Transaction.category_id == category_id)
     if type:
@@ -97,8 +93,12 @@ def list_transactions(
 
 
 @router.post("", status_code=201)
-def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
-    t = Transaction(user_id=DEFAULT_USER_ID, **body.model_dump())
+def create_transaction(
+    body: TransactionCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    t = Transaction(user_id=user_id, **body.model_dump())
     db.add(t)
     db.commit()
     db.refresh(t)
@@ -106,9 +106,14 @@ def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{txn_id}")
-def update_transaction(txn_id: int, body: TransactionUpdate, db: Session = Depends(get_db)):
+def update_transaction(
+    txn_id: int,
+    body: TransactionUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     t = db.get(Transaction, txn_id)
-    if not t or t.user_id != DEFAULT_USER_ID:
+    if not t or t.user_id != user_id:
         raise HTTPException(404, "Transaction not found")
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(t, k, v)
@@ -118,9 +123,13 @@ def update_transaction(txn_id: int, body: TransactionUpdate, db: Session = Depen
 
 
 @router.delete("/{txn_id}", status_code=204)
-def delete_transaction(txn_id: int, db: Session = Depends(get_db)):
+def delete_transaction(
+    txn_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     t = db.get(Transaction, txn_id)
-    if not t or t.user_id != DEFAULT_USER_ID:
+    if not t or t.user_id != user_id:
         raise HTTPException(404, "Transaction not found")
     db.delete(t)
     db.commit()

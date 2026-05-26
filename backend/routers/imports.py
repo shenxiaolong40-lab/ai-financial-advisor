@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, File, UploadFile, Form, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import Optional
 from backend.database import get_db
+from backend.deps import get_current_user_id
 from backend.services.sync_service import parse_alipay, parse_wechat, import_rows
 
 router = APIRouter(prefix="/api/import", tags=["import"])
@@ -13,6 +15,7 @@ async def import_bill(
     file: UploadFile = File(...),
     account_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
 ):
     if source not in ("alipay", "wechat"):
         raise HTTPException(400, "source 只支持 alipay 或 wechat")
@@ -22,24 +25,20 @@ async def import_bill(
         raise HTTPException(400, "文件为空")
 
     try:
-        if source == "alipay":
-            rows = parse_alipay(data)
-        else:
-            rows = parse_wechat(data)
+        rows = parse_alipay(data) if source == "alipay" else parse_wechat(data)
     except ValueError as e:
         raise HTTPException(422, str(e))
 
     if not rows:
         return {"inserted": 0, "skipped": 0, "total": 0, "message": "文件中未找到有效交易记录"}
 
-    result = import_rows(rows, account_id, db)
+    result = import_rows(rows, account_id, db, user_id=user_id)
     result["message"] = f"导入完成：新增 {result['inserted']} 条，跳过重复 {result['skipped']} 条"
     return result
 
 
 @router.get("/sample/{source}")
 def download_sample(source: str):
-    """返回示例 CSV 内容，帮助用户了解格式"""
     if source == "alipay":
         content = (
             "支付宝交易记录明细查询\n"
@@ -71,7 +70,6 @@ def download_sample(source: str):
     else:
         raise HTTPException(400, "source 只支持 alipay 或 wechat")
 
-    from fastapi.responses import Response
     return Response(
         content=content.encode("utf-8-sig"),
         media_type="text/csv",

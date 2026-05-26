@@ -1,13 +1,30 @@
 const BASE = 'http://localhost:8000';
 
+// ── Auth token management ──
+const Auth = {
+  getToken: () => localStorage.getItem('finance_token'),
+  setToken: (t) => localStorage.setItem('finance_token', t),
+  clear: () => localStorage.removeItem('finance_token'),
+  headers: () => {
+    const t = Auth.getToken();
+    return t ? { 'Authorization': `Bearer ${t}` } : {};
+  },
+};
+
 async function request(method, path, body) {
   const opts = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...Auth.headers() },
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const res = await fetch(BASE + path, opts);
   if (res.status === 204) return null;
+  if (res.status === 401) {
+    // 多用户模式下跳登录
+    Auth.clear();
+    showLoginModal();
+    throw new Error('请先登录');
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || '请求失败');
   return data;
@@ -37,6 +54,9 @@ const API = {
   deleteBudget: (id) => API.delete(`/api/budgets/${id}`),
   income: () => API.get('/api/income'),
   updateIncome: (body) => API.put('/api/income', body),
+  authMe: () => API.get('/api/auth/me'),
+  authLogin: (body) => API.post('/api/auth/login', body),
+  authRegister: (body) => API.post('/api/auth/register', body),
   aiChat: (body) => API.post('/api/ai/chat', body),
   aiAnalysis: () => API.post('/api/ai/analysis', {}),
   aiHistory: () => API.get('/api/ai/history'),

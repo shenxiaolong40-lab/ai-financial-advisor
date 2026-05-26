@@ -1,0 +1,9 @@
+*.db
+*.db-shm
+*.db-wal
+.env
+__pycache__/
+*.pyc
+.DS_Store
+.git/
+.gitignore

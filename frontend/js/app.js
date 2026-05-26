@@ -86,9 +86,75 @@ function showToast(msg, type = 'success') {
   setTimeout(() => el.remove(), 2500);
 }
 
-// Init
-(async () => {
+// ── Auth ───────────────────────────────────────────────────────────────────
+
+let authTab = 'login';
+let appMode = 'single';
+
+function showLoginModal() {
+  document.getElementById('modal-login').classList.add('open');
+}
+
+function hideLoginModal() {
+  document.getElementById('modal-login').classList.remove('open');
+}
+
+function switchAuthTab(tab) {
+  authTab = tab;
+  document.querySelectorAll('#modal-login .toggle-tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'register'));
+  });
+  document.getElementById('btn-auth').textContent = tab === 'login' ? '登录' : '注册';
+  document.getElementById('auth-error').classList.add('hidden');
+}
+
+async function doAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.add('hidden');
+  if (!email || !password) { errEl.textContent = '请填写邮箱和密码'; errEl.classList.remove('hidden'); return; }
+
+  const btn = document.getElementById('btn-auth');
+  btn.disabled = true;
+  btn.textContent = '请稍候…';
+  try {
+    const fn = authTab === 'login' ? API.authLogin : API.authRegister;
+    const data = await fn({ email, password });
+    Auth.setToken(data.token);
+    hideLoginModal();
+    await initApp();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+  }
+  btn.disabled = false;
+  btn.textContent = authTab === 'login' ? '登录' : '注册';
+}
+
+function logout() {
+  Auth.clear();
+  showToast('已退出登录');
+  showLoginModal();
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+
+async function initApp() {
+  try {
+    const me = await API.authMe();
+    appMode = me.mode;
+    if (appMode === 'multi' && !Auth.getToken()) {
+      showLoginModal();
+      return;
+    }
+  } catch (e) {
+    // If 401 already triggered showLoginModal via request()
+    return;
+  }
   await loadSharedData();
   const hash = location.hash.replace('#', '') || 'dashboard';
   navigate(['dashboard','transactions','goals','ai','accounts'].includes(hash) ? hash : 'dashboard');
-})();
+}
+
+(async () => { await initApp(); })();

@@ -12,8 +12,6 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from backend.models import Transaction, Category
 
-DEFAULT_USER_ID = 1
-
 # 支付宝表头关键列名
 ALIPAY_HEADERS = {
     "time": "交易时间",
@@ -222,7 +220,7 @@ def parse_wechat(data: bytes) -> list[ParsedRow]:
 
 # ─── 写入数据库 ───────────────────────────────────────────────────────────────
 
-def import_rows(rows: list[ParsedRow], account_id: Optional[int], db: Session) -> dict:
+def import_rows(rows: list[ParsedRow], account_id: Optional[int], db: Session, user_id: int = 1) -> dict:
     inserted = 0
     skipped = 0
 
@@ -248,7 +246,7 @@ def import_rows(rows: list[ParsedRow], account_id: Optional[int], db: Session) -
             continue
 
         txn = Transaction(
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
             account_id=account_id,
             category_id=cat_id,
             amount=row.amount,
