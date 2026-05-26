@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>AI 财务顾问</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════════ DASHBOARD ══════════════ -->
+  <div id="page-dashboard" class="page">
+    <div class="page-header">
+      <h1>💰 财务总览</h1>
+      <p id="dashboard-month"></p>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card full">
+        <div class="s-label">本月结余</div>
+        <div class="s-value" id="db-balance">--</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">收入</div>
+        <div class="s-value income" id="db-income">--</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">支出</div>
+        <div class="s-value expense" id="db-expense">--</div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">消费分布</span>
+      </div>
+      <div class="card">
+        <div class="chart-wrap"><canvas id="pie-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Budget progress -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">预算进度</span>
+        <span class="section-link" onclick="navigate('goals')">管理</span>
+      </div>
+      <div class="card" id="db-budgets">
+        <div class="empty-state"><div class="empty-icon">📊</div>暂无预算</div>
+      </div>
+    </div>
+
+    <!-- Recent transactions -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">最近交易</span>
+        <span class="section-link" onclick="navigate('transactions')">全部</span>
+      </div>
+      <div class="card" id="db-recent">
+        <div class="empty-state"><div class="empty-icon">📋</div>暂无交易记录</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ TRANSACTIONS ══════════════ -->
+  <div id="page-transactions" class="page">
+    <div class="page-header">
+      <h1>📋 账单</h1>
+      <div class="mt-8">
+        <input type="month" id="txn-month-filter" class="form-input" style="width:auto;font-size:13px;padding:6px 10px;">
+      </div>
+    </div>
+
+    <div class="section" style="margin-top:12px;">
+      <div class="toggle-tabs">
+        <div class="toggle-tab active" data-type="">全部</div>
+        <div class="toggle-tab" data-type="expense">支出</div>
+        <div class="toggle-tab" data-type="income">收入</div>
+      </div>
+    </div>
+
+    <div class="section mt-8">
+      <input type="search" id="txn-search" class="form-input" placeholder="搜索商户/备注…">
+    </div>
+
+    <div class="section mt-12" id="txn-list">
+      <div class="empty-state"><div class="empty-icon">📋</div>暂无记录</div>
+    </div>
+
+    <button class="fab" onclick="openAddTxn()">＋</button>
+  </div>
+
+  <!-- ══════════════ GOALS ══════════════ -->
+  <div id="page-goals" class="page">
+    <div class="page-header">
+      <h1>🎯 目标 & 预算</h1>
+    </div>
+
+    <!-- Income config -->
+    <div class="section mt-16">
+      <div class="section-header">
+        <span class="section-title">收入设置</span>
+      </div>
+      <div class="card">
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">月固定收入</label>
+            <input type="number" id="income-monthly" class="form-input" placeholder="0">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">月额外收入</label>
+            <input type="number" id="income-extra" class="form-input" placeholder="0">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block mt-12" onclick="saveIncome()">保存收入</button>
+      </div>
+    </div>
+
+    <!-- Goals -->
+    <div class="section mt-16">
+      <div class="section-header">
+        <span class="section-title">储蓄目标</span>
+        <button class="btn btn-outline btn-sm" onclick="openGoalModal()">＋ 新增</button>
+      </div>
+      <div id="goals-list">
+        <div class="empty-state"><div class="empty-icon">🎯</div>暂无储蓄目标</div>
+      </div>
+    </div>
+
+    <!-- Budgets -->
+    <div class="section mt-16">
+      <div class="section-header">
+        <span class="section-title">分类预算</span>
+        <button class="btn btn-outline btn-sm" onclick="openBudgetModal()">＋ 新增</button>
+      </div>
+      <div id="budgets-list">
+        <div class="empty-state"><div class="empty-icon">💰</div>暂无预算设置</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ AI ══════════════ -->
+  <div id="page-ai" class="page">
+    <div class="page-header">
+      <h1>🤖 AI 顾问</h1>
+      <p>基于你的真实财务数据提供建议</p>
+    </div>
+
+    <div class="quick-prompts">
+      <span class="quick-prompt" onclick="sendQuick('分析上月消费')">📊 上月消费分析</span>
+      <span class="quick-prompt" onclick="sendQuick('本月预算还剩多少？')">💰 预算余额</span>
+      <span class="quick-prompt" onclick="sendQuick('帮我分析储蓄目标进度')">🎯 目标追踪</span>
+      <span class="quick-prompt" onclick="sendQuick('哪里可以节省开支？')">💡 省钱建议</span>
+    </div>
+
+    <div id="ai-messages"></div>
+
+    <div class="ai-input-row">
+      <input type="text" id="ai-input" placeholder="问问你的 AI 财务顾问…" onkeydown="if(event.key==='Enter')sendAI()">
+      <button class="ai-send-btn" onclick="sendAI()">➤</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ ACCOUNTS ══════════════ -->
+  <div id="page-accounts" class="page">
+    <div class="page-header">
+      <h1>💳 账户</h1>
+    </div>
+
+    <div class="section mt-16">
+      <div class="section-header">
+        <span class="section-title">我的账户</span>
+        <button class="btn btn-outline btn-sm" onclick="openAccountModal()">＋ 新增</button>
+      </div>
+      <div id="accounts-list">
+        <div class="empty-state"><div class="empty-icon">💳</div>暂无账户</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ BOTTOM NAV ══════════════ -->
+  <nav id="bottom-nav">
+    <div class="nav-item active" data-page="dashboard">
+      <span class="icon">🏠</span><span>总览</span>
+    </div>
+    <div class="nav-item" data-page="transactions">
+      <span class="icon">📋</span><span>账单</span>
+    </div>
+    <div class="nav-item" data-page="goals">
+      <span class="icon">🎯</span><span>目标</span>
+    </div>
+    <div class="nav-item" data-page="ai">
+      <span class="icon">🤖</span><span>AI</span>
+    </div>
+    <div class="nav-item" data-page="accounts">
+      <span class="icon">💳</span><span>账户</span>
+    </div>
+  </nav>
+</div>
+
+<!-- ══════════════ MODALS ══════════════ -->
+
+<!-- Add Transaction Modal -->
+<div id="modal-txn" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-txn')">
+  <div class="modal">
+    <div class="modal-title" id="modal-txn-title">新增交易</div>
+    <div class="form-group">
+      <div class="toggle-tabs">
+        <div class="toggle-tab active" data-txntype="expense" onclick="setTxnType('expense')">支出</div>
+        <div class="toggle-tab" data-txntype="income" onclick="setTxnType('income')">收入</div>
+      </div>
+    </div>
+    <input type="hidden" id="txn-edit-id">
+    <div class="form-group">
+      <label class="form-label">金额</label>
+      <input type="number" id="txn-amount" class="form-input" placeholder="0.00" step="0.01">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">日期</label>
+        <input type="date" id="txn-date" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">分类</label>
+        <select id="txn-category" class="form-input"></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">商户/来源</label>
+      <input type="text" id="txn-merchant" class="form-input" placeholder="如：麦当劳、工资">
+    </div>
+    <div class="form-group">
+      <label class="form-label">备注</label>
+      <input type="text" id="txn-desc" class="form-input" placeholder="可选">
+    </div>
+    <div class="form-group">
+      <label class="form-label">账户</label>
+      <select id="txn-account" class="form-input"><option value="">不绑定账户</option></select>
+    </div>
+    <div class="flex" style="gap:10px;margin-top:4px;">
+      <button class="btn btn-outline btn-block" onclick="closeModal('modal-txn')">取消</button>
+      <button class="btn btn-primary btn-block" onclick="saveTxn()">保存</button>
+    </div>
+    <div id="txn-delete-row" class="hidden mt-8">
+      <button class="btn btn-danger btn-block btn-sm" onclick="deleteTxn()">删除这条记录</button>
+    </div>
+  </div>
+</div>
+
+<!-- Goal Modal -->
+<div id="modal-goal" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-goal')">
+  <div class="modal">
+    <div class="modal-title">储蓄目标</div>
+    <input type="hidden" id="goal-edit-id">
+    <div class="form-group">
+      <label class="form-label">目标名称</label>
+      <input type="text" id="goal-name" class="form-input" placeholder="如：买车首付">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">目标金额</label>
+        <input type="number" id="goal-target" class="form-input" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">已存金额</label>
+        <input type="number" id="goal-current" class="form-input" placeholder="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">截止日期（可选）</label>
+      <input type="date" id="goal-deadline" class="form-input">
+    </div>
+    <div class="flex" style="gap:10px">
+      <button class="btn btn-outline btn-block" onclick="closeModal('modal-goal')">取消</button>
+      <button class="btn btn-primary btn-block" onclick="saveGoal()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Budget Modal -->
+<div id="modal-budget" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-budget')">
+  <div class="modal">
+    <div class="modal-title">设置预算</div>
+    <div class="form-group">
+      <label class="form-label">分类</label>
+      <select id="budget-category" class="form-input"><option value="">总预算（不限分类）</option></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">预算上限</label>
+        <input type="number" id="budget-limit" class="form-input" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">周期</label>
+        <select id="budget-period" class="form-input">
+          <option value="monthly">每月</option>
+          <option value="weekly">每周</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex" style="gap:10px">
+      <button class="btn btn-outline btn-block" onclick="closeModal('modal-budget')">取消</button>
+      <button class="btn btn-primary btn-block" onclick="saveBudget()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Account Modal -->
+<div id="modal-account" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-account')">
+  <div class="modal">
+    <div class="modal-title">添加账户</div>
+    <div class="form-group">
+      <label class="form-label">账户名称</label>
+      <input type="text" id="account-name" class="form-input" placeholder="如：建行储蓄卡">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">类型</label>
+        <select id="account-type" class="form-input">
+          <option value="bank">🏦 银行卡</option>
+          <option value="alipay">💙 支付宝</option>
+          <option value="wechat">💚 微信</option>
+          <option value="cash">💵 现金</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">当前余额</label>
+        <input type="number" id="account-balance" class="form-input" placeholder="0">
+      </div>
+    </div>
+    <div class="flex" style="gap:10px">
+      <button class="btn btn-outline btn-block" onclick="closeModal('modal-account')">取消</button>
+      <button class="btn btn-primary btn-block" onclick="saveAccount()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/transactions.js"></script>
+<script src="js/goals.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/accounts.js"></script>
+</body>
+</html>

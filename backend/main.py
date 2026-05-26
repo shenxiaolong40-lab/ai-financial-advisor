@@ -1,0 +1,63 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+from backend.config import settings
+from backend.database import init_db
+from backend.routers import transactions, accounts, categories, budgets, goals, income, dashboard, ai
+from backend.routers.categories import seed_categories
+from backend.database import SessionLocal
+
+app = FastAPI(title="AI Finance Advisor", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(dashboard.router)
+app.include_router(transactions.router)
+app.include_router(accounts.router)
+app.include_router(categories.router)
+app.include_router(budgets.router)
+app.include_router(goals.router)
+app.include_router(income.router)
+app.include_router(ai.router)
+
+frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
+if os.path.exists(frontend_dir):
+    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+
+    @app.get("/")
+    def serve_frontend():
+        return FileResponse(os.path.join(frontend_dir, "index.html"))
+
+
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "mode": settings.user_mode}
+
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
+    db = SessionLocal()
+    try:
+        from backend.models import User
+        user = db.query(User).filter(User.id == 1).first()
+        if not user:
+            db.add(User(id=1, single_user_mode=True))
+            db.commit()
+        seed_categories(db)
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
