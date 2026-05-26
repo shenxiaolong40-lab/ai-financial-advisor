@@ -238,6 +238,37 @@
         <div class="empty-state"><div class="empty-icon">💳</div>暂无账户</div>
       </div>
     </div>
+
+    <!-- Import bills -->
+    <div class="section mt-16">
+      <div class="section-header">
+        <span class="section-title">导入账单</span>
+      </div>
+      <div class="import-cards">
+        <div class="import-card" onclick="openImportModal('alipay')">
+          <div class="import-icon">💙</div>
+          <div class="import-name">支付宝账单</div>
+          <div class="import-hint">导入 CSV 文件</div>
+        </div>
+        <div class="import-card" onclick="openImportModal('wechat')">
+          <div class="import-icon">💚</div>
+          <div class="import-name">微信账单</div>
+          <div class="import-hint">导入 CSV 文件</div>
+        </div>
+      </div>
+      <div class="card mt-8" style="background:var(--surface-2);border:none;box-shadow:none">
+        <div style="font-size:12px;color:var(--text-3);line-height:1.7">
+          <div>📥 <strong>如何导出账单：</strong></div>
+          <div>· 支付宝 App → 我的 → 账单 → 右上角下载 → 选时间段 → 导出 CSV</div>
+          <div>· 微信 App → 我 → 服务 → 钱包 → 账单 → 右上角 → 下载账单 → 导出 CSV</div>
+          <div style="margin-top:6px">
+            <a href="http://localhost:8000/api/import/sample/alipay" style="color:var(--primary);font-size:11px">下载支付宝示例</a>
+            &nbsp;·&nbsp;
+            <a href="http://localhost:8000/api/import/sample/wechat" style="color:var(--primary);font-size:11px">下载微信示例</a>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ══════════════ BOTTOM NAV ══════════════ -->
@@ -411,6 +442,41 @@
     <div class="flex" style="gap:10px">
       <button class="btn btn-outline btn-block" onclick="closeModal('modal-account')">取消</button>
       <button class="btn btn-primary btn-block" onclick="saveAccount()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div id="modal-import" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-import')">
+  <div class="modal">
+    <div class="modal-title" id="import-modal-title">导入账单</div>
+    <input type="hidden" id="import-source">
+
+    <div class="import-drop-zone" id="import-drop-zone" onclick="document.getElementById('import-file-input').click()">
+      <div style="font-size:36px" id="import-drop-icon">📂</div>
+      <div style="font-weight:600;margin-top:8px" id="import-drop-label">点击或拖拽上传 CSV 文件</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:4px">支持支付宝/微信导出的 CSV 格式</div>
+    </div>
+    <input type="file" id="import-file-input" accept=".csv" style="display:none" onchange="onImportFileSelect(event)">
+
+    <div class="form-group mt-8">
+      <label class="form-label">关联账户（可选）</label>
+      <select id="import-account" class="form-input">
+        <option value="">不关联账户</option>
+      </select>
+    </div>
+
+    <div id="import-preview" class="hidden mt-8">
+      <div class="import-preview-box" id="import-preview-box"></div>
+    </div>
+
+    <div id="import-result" class="hidden mt-8">
+      <div class="import-result-box" id="import-result-box"></div>
+    </div>
+
+    <div class="flex mt-8" style="gap:10px">
+      <button class="btn btn-outline btn-block" onclick="closeModal('modal-import')">取消</button>
+      <button class="btn btn-primary btn-block" id="btn-do-import" onclick="doImport()" disabled>开始导入</button>
     </div>
   </div>
 </div>

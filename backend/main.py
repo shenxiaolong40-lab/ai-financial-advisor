@@ -6,7 +6,7 @@ import os
 
 from backend.config import settings
 from backend.database import init_db
-from backend.routers import transactions, accounts, categories, budgets, goals, income, dashboard, ai
+from backend.routers import transactions, accounts, categories, budgets, goals, income, dashboard, ai, imports
 from backend.routers.categories import seed_categories
 from backend.database import SessionLocal
 
@@ -28,6 +28,7 @@ app.include_router(budgets.router)
 app.include_router(goals.router)
 app.include_router(income.router)
 app.include_router(ai.router)
+app.include_router(imports.router)
 
 frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
 if os.path.exists(frontend_dir):
