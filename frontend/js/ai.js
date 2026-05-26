@@ -62,7 +62,7 @@ async function sendAI() {
     if (data.model) {
       const modelTag = document.createElement('div');
       modelTag.className = 'ai-model-tag';
-      modelTag.textContent = data.model.includes('haiku') ? '⚡ Haiku' : '🧠 Sonnet';
+      modelTag.textContent = '⚡ DeepSeek';
       typingDiv.appendChild(modelTag);
     }
   } catch (e) {
@@ -89,7 +89,7 @@ async function runAnalysis() {
     typingDiv.innerHTML = mdToHtml(data.report || '分析完成');
     const modelTag = document.createElement('div');
     modelTag.className = 'ai-model-tag';
-    modelTag.textContent = '🧠 Sonnet 深度分析';
+    modelTag.textContent = '🧠 DeepSeek 深度分析';
     typingDiv.appendChild(modelTag);
   } catch (e) {
     typingDiv.innerHTML = `<span style="color:var(--danger)">分析失败：${e.message}</span>`;

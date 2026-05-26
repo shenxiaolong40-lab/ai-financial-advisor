@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    deepseek_api_key: str = ""
     user_mode: str = "single"
     database_url: str = "sqlite:///./finance.db"
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:5500,null"

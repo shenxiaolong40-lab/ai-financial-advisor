@@ -5,10 +5,16 @@ from backend.config import settings
 from backend.models import Transaction, Budget, Goal, IncomeProfile, AISession, Category
 
 DEFAULT_USER_ID = 1
-CHAT_MODEL = "claude-haiku-4-5-20251001"
-ANALYSIS_MODEL = "claude-sonnet-4-6"
+CHAT_MODEL = "deepseek-chat"
+ANALYSIS_MODEL = "deepseek-chat"
+DEEPSEEK_BASE = "https://api.deepseek.com"
 MAX_TOKENS = 1024
 CONTEXT_ROUNDS = 5
+
+
+def _key_valid() -> bool:
+    k = settings.deepseek_api_key
+    return bool(k) and k.startswith("sk-") and len(k) > 10
 
 
 def _current_month() -> tuple:
@@ -54,7 +60,7 @@ def _build_financial_context(db: Session) -> str:
             spent = total_expense
             name = "总预算"
         pct = spent / b.limit_amount * 100 if b.limit_amount > 0 else 0
-        status = "⚠️ 超支" if pct >= 100 else ("🔶 接近上限" if pct >= 80 else "✅ 正常")
+        status = "超支" if pct >= 100 else ("接近上限" if pct >= 80 else "正常")
         budget_lines.append(f"  - {name}: 已用¥{spent:.0f}/上限¥{b.limit_amount:.0f}（{pct:.0f}%）{status}")
     budget_section = "\n".join(budget_lines) or "  暂无预算设置"
 
@@ -75,20 +81,16 @@ def _build_financial_context(db: Session) -> str:
     monthly_extra = income_profile.monthly_extra if income_profile else 0
     saving_rate = (balance / total_income * 100) if total_income > 0 else 0
 
-    return f"""【{month_label}财务数据】
-月固定收入设置：¥{monthly_income_set:.0f}（额外收入均值：¥{monthly_extra:.0f}）
-本月实际收入：¥{total_income:.0f}
-本月总支出：¥{total_expense:.0f}
-本月结余：¥{balance:.0f}（储蓄率 {saving_rate:.1f}%）
-
-本月支出分类：
-{category_lines}
-
-预算执行情况：
-{budget_section}
-
-储蓄目标进度：
-{goals_section}"""
+    return (
+        f"【{month_label}财务数据】\n"
+        f"月固定收入设置：¥{monthly_income_set:.0f}（额外收入均值：¥{monthly_extra:.0f}）\n"
+        f"本月实际收入：¥{total_income:.0f}\n"
+        f"本月总支出：¥{total_expense:.0f}\n"
+        f"本月结余：¥{balance:.0f}（储蓄率 {saving_rate:.1f}%）\n\n"
+        f"本月支出分类：\n{category_lines}\n\n"
+        f"预算执行情况：\n{budget_section}\n\n"
+        f"储蓄目标进度：\n{goals_section}"
+    )
 
 
 def _get_conversation_history(db: Session) -> list:
@@ -107,7 +109,6 @@ def _save_message(db: Session, role: str, content: str, tokens: int = 0):
     msg = AISession(user_id=DEFAULT_USER_ID, role=role, content=content, tokens_used=tokens)
     db.add(msg)
     db.commit()
-
     total = db.query(AISession).filter(AISession.user_id == DEFAULT_USER_ID).count()
     if total > 50:
         oldest = (
@@ -122,106 +123,98 @@ def _save_message(db: Session, role: str, content: str, tokens: int = 0):
         db.commit()
 
 
-def _key_valid() -> bool:
-    k = settings.anthropic_api_key
-    return bool(k) and k != "your_anthropic_api_key_here" and k.startswith("sk-")
+async def _call_deepseek(system: str, messages: list, model: str, max_tokens: int) -> dict:
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(
+            f"{DEEPSEEK_BASE}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {settings.deepseek_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "max_tokens": max_tokens,
+                "messages": [{"role": "system", "content": system}] + messages,
+            },
+        )
+        if resp.status_code == 401:
+            raise ValueError("API Key 无效，请检查 .env 中的 DEEPSEEK_API_KEY")
+        if resp.status_code == 402:
+            raise ValueError("账户余额不足，请前往 DeepSeek 平台充值")
+        resp.raise_for_status()
+        return resp.json()
 
 
 async def chat(message: str, db: Session, deep: bool = False) -> dict:
     if not _key_valid():
-        return {"reply": "❌ 未配置有效的 ANTHROPIC_API_KEY。\n\n请编辑 `backend/.env` 文件，将 `ANTHROPIC_API_KEY=` 后面填入你的 Anthropic API Key（以 `sk-ant-` 开头）。", "tokens": 0}
+        return {
+            "reply": "未配置有效的 DEEPSEEK_API_KEY，请编辑 backend/.env 文件。",
+            "tokens": 0,
+        }
 
     financial_context = _build_financial_context(db)
     history = _get_conversation_history(db)
 
-    system_prompt = f"""你是一位专业的个人财务顾问，你直接访问用户的真实财务数据并给出精准建议。
-
-分析规则：
-- 用具体数字说话，不说"可能"、"也许"等模糊词
-- 发现异常波动要明确指出
-- 给出的建议要可执行：具体金额、具体行动
-- 语气友好鼓励，不制造焦虑
-- 回复控制在 200 字以内，关键数字用**加粗**
-
-{financial_context}"""
+    system_prompt = (
+        "你是一位专业的个人财务顾问，你直接访问用户的真实财务数据并给出精准建议。\n\n"
+        "分析规则：\n"
+        "- 用具体数字说话，不说\"可能\"、\"也许\"等模糊词\n"
+        "- 发现异常波动要明确指出\n"
+        "- 给出的建议要可执行：具体金额、具体行动\n"
+        "- 语气友好鼓励，不制造焦虑\n"
+        "- 回复控制在 200 字以内，关键数字用**加粗**\n\n"
+        + financial_context
+    )
 
     messages = history + [{"role": "user", "content": message}]
-    model = ANALYSIS_MODEL if deep else CHAT_MODEL
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": settings.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "max_tokens": MAX_TOKENS,
-                    "system": system_prompt,
-                    "messages": messages,
-                },
-            )
-            if resp.status_code == 401:
-                return {"reply": "❌ API Key 无效，请检查 .env 文件中的 ANTHROPIC_API_KEY 是否正确。", "tokens": 0}
-            resp.raise_for_status()
-            data = resp.json()
+        data = await _call_deepseek(system_prompt, messages, CHAT_MODEL, MAX_TOKENS)
+    except ValueError as e:
+        return {"reply": str(e), "tokens": 0}
     except httpx.TimeoutException:
-        return {"reply": "⏱️ 请求超时，请稍后重试。", "tokens": 0}
+        return {"reply": "请求超时，请稍后重试。", "tokens": 0}
     except httpx.RequestError as e:
-        return {"reply": f"🌐 网络错误：{str(e)}", "tokens": 0}
+        return {"reply": f"网络错误：{str(e)}", "tokens": 0}
 
-    reply = data["content"][0]["text"]
-    tokens = data.get("usage", {}).get("output_tokens", 0)
+    reply = data["choices"][0]["message"]["content"]
+    tokens = data.get("usage", {}).get("completion_tokens", 0)
 
     _save_message(db, "user", message)
     _save_message(db, "assistant", reply, tokens)
 
-    return {"reply": reply, "tokens": tokens, "model": model}
+    return {"reply": reply, "tokens": tokens, "model": CHAT_MODEL}
 
 
 async def generate_analysis(db: Session) -> dict:
     if not _key_valid():
-        return {"report": "❌ 未配置有效的 ANTHROPIC_API_KEY，请编辑 `backend/.env` 文件。"}
+        return {"report": "未配置有效的 DEEPSEEK_API_KEY，请编辑 backend/.env 文件。"}
 
     financial_context = _build_financial_context(db)
 
-    system_prompt = """你是一位个人财务分析师。根据用户本月的财务数据，生成一份简洁的分析报告。
-
-报告格式（严格遵守）：
-1. 📊 本月总结（2句话）
-2. 🔍 重点发现（2-3个具体数字发现）
-3. 💡 行动建议（2条具体可执行建议）
-
-每条控制在 1-2 句话，关键数字**加粗**，总字数不超过 250 字。"""
+    system_prompt = (
+        "你是一位个人财务分析师。根据用户本月的财务数据，生成一份简洁的分析报告。\n\n"
+        "报告格式（严格遵守）：\n"
+        "1. 本月总结（2句话）\n"
+        "2. 重点发现（2-3个具体数字发现）\n"
+        "3. 行动建议（2条具体可执行建议）\n\n"
+        "每条控制在 1-2 句话，关键数字**加粗**，总字数不超过 250 字。"
+    )
 
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": settings.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-                json={
-                    "model": ANALYSIS_MODEL,
-                    "max_tokens": 600,
-                    "system": system_prompt,
-                    "messages": [{"role": "user", "content": financial_context}],
-                },
-            )
-            if resp.status_code == 401:
-                return {"report": "❌ API Key 无效，请检查 .env 文件。"}
-            resp.raise_for_status()
-            data = resp.json()
+        data = await _call_deepseek(
+            system_prompt,
+            [{"role": "user", "content": financial_context}],
+            ANALYSIS_MODEL,
+            600,
+        )
+    except ValueError as e:
+        return {"report": str(e)}
     except httpx.TimeoutException:
-        return {"report": "⏱️ 请求超时，请稍后重试。"}
+        return {"report": "请求超时，请稍后重试。"}
     except httpx.RequestError as e:
-        return {"report": f"🌐 网络错误：{str(e)}"}
+        return {"report": f"网络错误：{str(e)}"}
 
-    reply = data["content"][0]["text"]
-    _save_message(db, "assistant", reply, data.get("usage", {}).get("output_tokens", 0))
+    reply = data["choices"][0]["message"]["content"]
+    _save_message(db, "assistant", reply, data.get("usage", {}).get("completion_tokens", 0))
     return {"report": reply}
