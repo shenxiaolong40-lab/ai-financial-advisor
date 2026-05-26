@@ -20,6 +20,7 @@ const API = {
   delete: (path) => request('DELETE', path),
 
   dashboard: (month) => API.get('/api/dashboard/summary' + (month ? `?month=${month}` : '')),
+  trend: (months) => API.get(`/api/dashboard/trend?months=${months || 6}`),
   transactions: (params) => API.get('/api/transactions?' + new URLSearchParams(params).toString()),
   createTxn: (body) => API.post('/api/transactions', body),
   updateTxn: (id, body) => API.put(`/api/transactions/${id}`, body),

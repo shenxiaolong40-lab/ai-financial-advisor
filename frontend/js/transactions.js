@@ -34,11 +34,27 @@ async function fetchTxns() {
   params.page_size = 100;
 
   try {
-    const data = await API.transactions(params);
+    const [data, summary] = await Promise.all([
+      API.transactions(params),
+      month ? API.dashboard(month) : Promise.resolve(null),
+    ]);
+    renderTxnStats(summary, data.total);
     renderTxnList(data.items);
   } catch (e) {
     console.error('Txn error', e);
   }
+}
+
+function renderTxnStats(summary, total) {
+  const el = document.getElementById('txn-stats');
+  if (!el) return;
+  if (!summary) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <span class="txn-stat-item">共 <strong>${total}</strong> 条</span>
+    <span class="txn-stat-item">收入 <strong style="color:var(--success)">${fmt(summary.total_income)}</strong></span>
+    <span class="txn-stat-item">支出 <strong style="color:var(--danger)">${fmt(summary.total_expense)}</strong></span>
+    <span class="txn-stat-item">结余 <strong>${fmt(summary.balance)}</strong></span>
+  `;
 }
 
 function renderTxnList(items) {

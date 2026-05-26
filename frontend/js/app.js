@@ -72,6 +72,20 @@ function populateAccountSelect(selectId) {
   });
 }
 
+function showToast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.style.cssText = `
+    position:fixed;bottom:calc(var(--nav-height)+16px);left:50%;transform:translateX(-50%);
+    background:${type === 'success' ? '#1A1D2E' : '#EF4444'};color:#fff;
+    padding:10px 20px;border-radius:99px;font-size:13px;font-weight:600;
+    z-index:9999;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.2);
+    animation:fadeIn 0.2s ease;
+  `;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
 // Init
 (async () => {
   await loadSharedData();

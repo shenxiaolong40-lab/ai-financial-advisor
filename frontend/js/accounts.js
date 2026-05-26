@@ -4,6 +4,9 @@ async function loadAccounts() {
   try {
     const data = await API.accounts();
     accounts = data;
+    const total = data.reduce((s, a) => s + a.balance, 0);
+    const el = document.getElementById('accounts-total');
+    if (el) el.textContent = fmt(total);
     renderAccountsList(data);
   } catch (e) { console.error(e); }
 }

@@ -1,7 +1,6 @@
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from typing import Optional
 from backend.database import get_db
 from backend.models import Transaction, Budget, Goal, IncomeProfile, Category
@@ -115,3 +114,36 @@ def get_summary(
         "goals_snapshot": goals_snapshot,
         "recent_transactions": recent_txns,
     }
+
+
+def _prev_month(year: int, m: int, n: int):
+    """Return (year, month) n months before (year, m)."""
+    total = year * 12 + (m - 1) - n
+    return total // 12, total % 12 + 1
+
+
+@router.get("/trend")
+def get_trend(
+    months: int = Query(6, ge=1, le=24),
+    db: Session = Depends(get_db),
+):
+    now = datetime.now()
+    result = []
+    for i in range(months - 1, -1, -1):
+        y, m = _prev_month(now.year, now.month, i)
+        start = date(y, m, 1)
+        end = date(y + 1, 1, 1) if m == 12 else date(y, m + 1, 1)
+        txns = db.query(Transaction).filter(
+            Transaction.user_id == DEFAULT_USER_ID,
+            Transaction.date >= start,
+            Transaction.date < end,
+        ).all()
+        income = sum(t.amount for t in txns if t.type == "income")
+        expense = sum(t.amount for t in txns if t.type == "expense")
+        result.append({
+            "month": f"{y:04d}-{m:02d}",
+            "income": round(income, 2),
+            "expense": round(expense, 2),
+            "balance": round(income - expense, 2),
+        })
+    return result

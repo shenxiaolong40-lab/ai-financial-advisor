@@ -108,6 +108,20 @@ body {
   margin-bottom: 14px;
 }
 
+/* ── Month Nav ── */
+.month-nav {
+  display: flex; align-items: center; gap: 8px;
+}
+.month-btn {
+  background: var(--surface-2); border: none;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-size: 16px; cursor: pointer; color: var(--text-2);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.month-btn:hover { background: var(--primary-light); color: var(--primary); }
+#dashboard-month-label { font-size: 14px; font-weight: 600; color: var(--text-2); min-width: 64px; text-align: center; }
+
 /* ── Summary Cards ── */
 .summary-grid {
   display: grid;
@@ -128,6 +142,7 @@ body {
 .s-value { font-size: 22px; font-weight: 700; }
 .s-value.income { color: var(--success); }
 .s-value.expense { color: var(--danger); }
+.s-sub { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 4px; }
 
 /* ── Section wrapper ── */
 .section { padding: 0 16px; margin-top: 16px; }
@@ -364,6 +379,64 @@ body {
 }
 .badge-income { background: #DCFCE7; color: #15803D; }
 .badge-expense { background: #FEE2E2; color: #B91C1C; }
+
+/* ── Category list ── */
+.cat-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.cat-row:last-child { border-bottom: none; }
+.cat-bar-wrap { flex: 1; }
+.cat-bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+.cat-bar-track { height: 5px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.cat-bar-fill { height: 100%; border-radius: 99px; }
+
+/* ── Txn stats bar ── */
+.txn-stats {
+  display: flex; gap: 16px; font-size: 13px;
+}
+.txn-stat-item { color: var(--text-2); }
+.txn-stat-item strong { color: var(--text); }
+
+/* ── Input prefix ── */
+.input-prefix-wrap { position: relative; }
+.input-prefix {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 15px; color: var(--text-2); pointer-events: none;
+}
+.form-input.with-prefix { padding-left: 26px; }
+
+/* ── Goal card (goals page) ── */
+.goal-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.goal-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.goal-card-name { font-size: 16px; font-weight: 700; }
+.goal-card-deadline { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.goal-amount-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-2); margin-top: 8px; }
+.goal-amount-row strong { color: var(--text); }
+
+/* ── Budget card (goals page) ── */
+.budget-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 10px;
+}
+
+/* ── Savings rate chip ── */
+.rate-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 600;
+  padding: 3px 10px; border-radius: 99px;
+  background: var(--primary-light); color: var(--primary);
+}
 
 /* ── Utility ── */
 .mt-8 { margin-top: 8px; }

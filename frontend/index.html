@@ -13,32 +13,56 @@
   <!-- ══════════════ DASHBOARD ══════════════ -->
   <div id="page-dashboard" class="page">
     <div class="page-header">
-      <h1>💰 财务总览</h1>
-      <p id="dashboard-month"></p>
+      <div class="flex-between">
+        <h1>💰 财务总览</h1>
+        <div class="month-nav">
+          <button class="month-btn" onclick="dashboardPrevMonth()">‹</button>
+          <span id="dashboard-month-label">2026-05</span>
+          <button class="month-btn" onclick="dashboardNextMonth()">›</button>
+        </div>
+      </div>
     </div>
 
+    <!-- Summary cards -->
     <div class="summary-grid">
       <div class="summary-card full">
         <div class="s-label">本月结余</div>
         <div class="s-value" id="db-balance">--</div>
+        <div class="s-sub" id="db-income-sub">收入 -- · 支出 --</div>
       </div>
       <div class="summary-card">
-        <div class="s-label">收入</div>
+        <div class="s-label">💚 收入</div>
         <div class="s-value income" id="db-income">--</div>
       </div>
       <div class="summary-card">
-        <div class="s-label">支出</div>
+        <div class="s-label">❤️ 支出</div>
         <div class="s-value expense" id="db-expense">--</div>
       </div>
     </div>
 
-    <!-- Chart -->
+    <!-- Trend chart -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">收支趋势</span>
+        <span class="text-sm text-muted">近6个月</span>
+      </div>
+      <div class="card">
+        <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Category breakdown -->
     <div class="section">
       <div class="section-header">
         <span class="section-title">消费分布</span>
+        <div class="toggle-tabs" style="width:auto;gap:0">
+          <div class="toggle-tab active" id="pie-tab-expense" onclick="switchPieTab('expense')">支出</div>
+          <div class="toggle-tab" id="pie-tab-income" onclick="switchPieTab('income')">收入</div>
+        </div>
       </div>
       <div class="card">
-        <div class="chart-wrap"><canvas id="pie-chart"></canvas></div>
+        <div class="chart-wrap" style="height:180px"><canvas id="pie-chart"></canvas></div>
+        <div id="category-list" class="mt-12"></div>
       </div>
     </div>
 
@@ -46,10 +70,21 @@
     <div class="section">
       <div class="section-header">
         <span class="section-title">预算进度</span>
-        <span class="section-link" onclick="navigate('goals')">管理</span>
+        <span class="section-link" onclick="navigate('goals')">管理 →</span>
       </div>
       <div class="card" id="db-budgets">
         <div class="empty-state"><div class="empty-icon">📊</div>暂无预算</div>
+      </div>
+    </div>
+
+    <!-- Goals snapshot -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">储蓄目标</span>
+        <span class="section-link" onclick="navigate('goals')">管理 →</span>
+      </div>
+      <div id="db-goals" class="card">
+        <div class="empty-state"><div class="empty-icon">🎯</div>暂无目标</div>
       </div>
     </div>
 
@@ -57,7 +92,7 @@
     <div class="section">
       <div class="section-header">
         <span class="section-title">最近交易</span>
-        <span class="section-link" onclick="navigate('transactions')">全部</span>
+        <span class="section-link" onclick="navigate('transactions')">全部 →</span>
       </div>
       <div class="card" id="db-recent">
         <div class="empty-state"><div class="empty-icon">📋</div>暂无交易记录</div>
@@ -68,10 +103,11 @@
   <!-- ══════════════ TRANSACTIONS ══════════════ -->
   <div id="page-transactions" class="page">
     <div class="page-header">
-      <h1>📋 账单</h1>
-      <div class="mt-8">
+      <div class="flex-between">
+        <h1>📋 账单</h1>
         <input type="month" id="txn-month-filter" class="form-input" style="width:auto;font-size:13px;padding:6px 10px;">
       </div>
+      <div class="txn-stats mt-8" id="txn-stats"></div>
     </div>
 
     <div class="section" style="margin-top:12px;">
@@ -108,11 +144,17 @@
         <div class="form-row">
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label">月固定收入</label>
-            <input type="number" id="income-monthly" class="form-input" placeholder="0">
+            <div class="input-prefix-wrap">
+              <span class="input-prefix">¥</span>
+              <input type="number" id="income-monthly" class="form-input with-prefix" placeholder="0">
+            </div>
           </div>
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label">月额外收入</label>
-            <input type="number" id="income-extra" class="form-input" placeholder="0">
+            <div class="input-prefix-wrap">
+              <span class="input-prefix">¥</span>
+              <input type="number" id="income-extra" class="form-input with-prefix" placeholder="0">
+            </div>
           </div>
         </div>
         <button class="btn btn-primary btn-block mt-12" onclick="saveIncome()">保存收入</button>
@@ -170,7 +212,14 @@
       <h1>💳 账户</h1>
     </div>
 
-    <div class="section mt-16">
+    <div class="section mt-16" id="accounts-total-wrap">
+      <div class="card" style="background:var(--primary);color:#fff">
+        <div class="s-label" style="color:rgba(255,255,255,0.75)">总资产</div>
+        <div class="s-value" id="accounts-total" style="color:#fff;font-size:28px">--</div>
+      </div>
+    </div>
+
+    <div class="section mt-12">
       <div class="section-header">
         <span class="section-title">我的账户</span>
         <button class="btn btn-outline btn-sm" onclick="openAccountModal()">＋ 新增</button>
@@ -216,7 +265,10 @@
     <input type="hidden" id="txn-edit-id">
     <div class="form-group">
       <label class="form-label">金额</label>
-      <input type="number" id="txn-amount" class="form-input" placeholder="0.00" step="0.01">
+      <div class="input-prefix-wrap">
+        <span class="input-prefix">¥</span>
+        <input type="number" id="txn-amount" class="form-input with-prefix" placeholder="0.00" step="0.01">
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -262,11 +314,17 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">目标金额</label>
-        <input type="number" id="goal-target" class="form-input" placeholder="0">
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">¥</span>
+          <input type="number" id="goal-target" class="form-input with-prefix" placeholder="0">
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">已存金额</label>
-        <input type="number" id="goal-current" class="form-input" placeholder="0">
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">¥</span>
+          <input type="number" id="goal-current" class="form-input with-prefix" placeholder="0">
+        </div>
       </div>
     </div>
     <div class="form-group">
@@ -276,6 +334,9 @@
     <div class="flex" style="gap:10px">
       <button class="btn btn-outline btn-block" onclick="closeModal('modal-goal')">取消</button>
       <button class="btn btn-primary btn-block" onclick="saveGoal()">保存</button>
+    </div>
+    <div id="goal-delete-row" class="hidden mt-8">
+      <button class="btn btn-danger btn-block btn-sm" onclick="deleteGoal()">删除此目标</button>
     </div>
   </div>
 </div>
@@ -291,7 +352,10 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">预算上限</label>
-        <input type="number" id="budget-limit" class="form-input" placeholder="0">
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">¥</span>
+          <input type="number" id="budget-limit" class="form-input with-prefix" placeholder="0">
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">周期</label>
@@ -328,7 +392,10 @@
       </div>
       <div class="form-group">
         <label class="form-label">当前余额</label>
-        <input type="number" id="account-balance" class="form-input" placeholder="0">
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">¥</span>
+          <input type="number" id="account-balance" class="form-input with-prefix" placeholder="0">
+        </div>
       </div>
     </div>
     <div class="flex" style="gap:10px">
