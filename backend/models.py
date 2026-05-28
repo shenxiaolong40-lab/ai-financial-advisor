@@ -20,6 +20,7 @@ class User(Base):
     goals: Mapped[List["Goal"]] = relationship(back_populates="user")
     income_profile: Mapped[Optional["IncomeProfile"]] = relationship(back_populates="user", uselist=False)
     ai_sessions: Mapped[List["AISession"]] = relationship(back_populates="user")
+    email_config: Mapped[Optional["EmailConfig"]] = relationship(back_populates="user", uselist=False)
 
 
 class Account(Base):
@@ -120,3 +121,18 @@ class AISession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     user: Mapped["User"] = relationship(back_populates="ai_sessions")
+
+
+class EmailConfig(Base):
+    __tablename__ = "email_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), unique=True)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    auth_code_encrypted: Mapped[str] = mapped_column(String, nullable=False)
+    provider: Mapped[str] = mapped_column(String, default="qq")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_sync_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user: Mapped["User"] = relationship(back_populates="email_config")

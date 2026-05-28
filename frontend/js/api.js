@@ -61,4 +61,9 @@ const API = {
   aiAnalysis: () => API.post('/api/ai/analysis', {}),
   aiHistory: () => API.get('/api/ai/history'),
   aiClearHistory: () => API.delete('/api/ai/history'),
+
+  emailConfig: () => API.get('/api/email/config'),
+  saveEmailConfig: (body) => API.post('/api/email/config', body),
+  deleteEmailConfig: () => API.delete('/api/email/config'),
+  runEmailSync: () => API.post('/api/email/sync/run', {}),
 };

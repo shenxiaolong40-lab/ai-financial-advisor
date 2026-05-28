@@ -17,7 +17,7 @@ function onPageActivate(page) {
   if (page === 'transactions') loadTransactions();
   if (page === 'goals') loadGoals();
   if (page === 'ai') loadAI();
-  if (page === 'accounts') loadAccounts();
+  if (page === 'accounts') { loadAccounts(); loadEmailConfig(); }
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {

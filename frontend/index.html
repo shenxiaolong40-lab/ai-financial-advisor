@@ -279,6 +279,21 @@
         </div>
       </div>
     </div>
+
+    <!-- Email auto sync -->
+    <div class="section mt-16">
+      <div class="section-header">
+        <span class="section-title">邮件自动同步</span>
+      </div>
+      <div class="email-sync-card" onclick="openEmailSheet()">
+        <div class="email-icon">📧</div>
+        <div class="email-info">
+          <div class="email-title">QQ 邮箱账单同步</div>
+          <div class="email-desc" id="email-sync-desc">自动解析银行交易提醒邮件</div>
+        </div>
+        <div class="email-status disconnected" id="email-sync-status">未配置</div>
+      </div>
+    </div>
   </div>
 
   <!-- ══════════════ BOTTOM NAV ══════════════ -->
@@ -516,6 +531,57 @@
     <div class="flex mt-8" style="gap:10px">
       <button class="btn btn-outline btn-block" onclick="closeModal('modal-import')">取消</button>
       <button class="btn btn-primary btn-block" id="btn-do-import" onclick="doImport()" disabled>开始导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- Email Config Bottom Sheet -->
+<div id="sheet-email" class="sheet-overlay" onclick="if(event.target===this)closeEmailSheet()">
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">📧 邮件账单同步</div>
+    <div class="sheet-subtitle">配置 QQ 邮箱后，系统将自动识别银行交易提醒邮件并导入账单。</div>
+
+    <!-- 已配置状态面板 -->
+    <div id="email-sheet-configured" class="hidden">
+      <div class="card" style="background:var(--primary-light);border:none;box-shadow:none;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:24px">✅</div>
+          <div>
+            <div style="font-weight:700;font-size:14px" id="email-configured-addr">已绑定邮箱</div>
+            <div style="font-size:12px;color:var(--text-2);margin-top:2px" id="email-last-sync">从未同步</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btn-email-sync-run" onclick="runEmailSync()">
+        🔄 立即同步近 90 天账单
+      </button>
+      <div id="email-sync-result" class="hidden"></div>
+      <div style="margin-top:12px;display:flex;gap:10px">
+        <button class="btn btn-outline btn-block btn-sm" onclick="showEmailEditForm()">修改配置</button>
+        <button class="btn btn-danger btn-block btn-sm" onclick="deleteEmailConfig()">解绑邮箱</button>
+      </div>
+    </div>
+
+    <!-- 配置表单 -->
+    <div id="email-sheet-form">
+      <div class="auth-code-tip">
+        ⚠️ QQ 邮箱需使用<strong>授权码</strong>（非 QQ 密码）。<br>
+        获取方式：QQ 邮箱网页版 → 设置 → 账户 → POP3/IMAP → 开启服务 → 生成授权码
+      </div>
+      <div class="form-group">
+        <label class="form-label">QQ 邮箱地址</label>
+        <input type="email" id="email-input" class="form-input" placeholder="xxxxxx@qq.com" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">授权码（非 QQ 密码）</label>
+        <input type="password" id="email-authcode" class="form-input" placeholder="邮箱设置中生成的16位授权码" autocomplete="off">
+      </div>
+      <div id="email-form-error" class="hidden" style="color:var(--danger);font-size:13px;margin-bottom:12px;text-align:center"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-outline btn-block" onclick="closeEmailSheet()">取消</button>
+        <button class="btn btn-primary btn-block" id="btn-email-save" onclick="saveEmailConfig()">连接并保存</button>
+      </div>
     </div>
   </div>
 </div>

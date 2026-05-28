@@ -52,6 +52,149 @@ async function saveAccount() {
   } catch (e) { alert(e.message); }
 }
 
+// ── 邮件同步配置 ──────────────────────────────────────────────────────────────
+
+let emailConfigured = false;
+
+async function loadEmailConfig() {
+  try {
+    const data = await API.emailConfig();
+    emailConfigured = data.configured;
+    const statusEl = document.getElementById('email-sync-status');
+    const descEl = document.getElementById('email-sync-desc');
+    if (data.configured) {
+      statusEl.textContent = '已连接';
+      statusEl.className = 'email-status connected';
+      descEl.textContent = data.email;
+    } else {
+      statusEl.textContent = '未配置';
+      statusEl.className = 'email-status disconnected';
+      descEl.textContent = '自动解析银行交易提醒邮件';
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function openEmailSheet() {
+  document.getElementById('email-form-error').classList.add('hidden');
+  document.getElementById('email-sync-result').classList.add('hidden');
+
+  if (emailConfigured) {
+    _showEmailConfiguredPanel();
+  } else {
+    _showEmailForm();
+  }
+  document.getElementById('sheet-email').classList.add('open');
+}
+
+function closeEmailSheet() {
+  document.getElementById('sheet-email').classList.remove('open');
+}
+
+function showEmailEditForm() {
+  document.getElementById('email-input').value = '';
+  document.getElementById('email-authcode').value = '';
+  _showEmailForm();
+}
+
+function _showEmailConfiguredPanel() {
+  document.getElementById('email-sheet-configured').classList.remove('hidden');
+  document.getElementById('email-sheet-form').classList.add('hidden');
+
+  // 刷新配置状态
+  API.emailConfig().then(data => {
+    if (!data.configured) return;
+    document.getElementById('email-configured-addr').textContent = data.email;
+    const lastSync = data.last_sync_at
+      ? '上次同步：' + new Date(data.last_sync_at).toLocaleString('zh-CN')
+      : '从未同步';
+    document.getElementById('email-last-sync').textContent = lastSync;
+  }).catch(() => {});
+}
+
+function _showEmailForm() {
+  document.getElementById('email-sheet-configured').classList.add('hidden');
+  document.getElementById('email-sheet-form').classList.remove('hidden');
+}
+
+async function saveEmailConfig() {
+  const email = document.getElementById('email-input').value.trim();
+  const authCode = document.getElementById('email-authcode').value.trim();
+  const errEl = document.getElementById('email-form-error');
+  errEl.classList.add('hidden');
+
+  if (!email || !authCode) {
+    errEl.textContent = '请填写邮箱和授权码';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (!email.endsWith('@qq.com') && !email.endsWith('@foxmail.com')) {
+    errEl.textContent = '当前仅支持 QQ 邮箱（@qq.com / @foxmail.com）';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const btn = document.getElementById('btn-email-save');
+  btn.disabled = true;
+  btn.textContent = '验证连接中…';
+
+  try {
+    await API.saveEmailConfig({ email, auth_code: authCode, provider: 'qq' });
+    emailConfigured = true;
+    closeEmailSheet();
+    await loadEmailConfig();
+    showToast('QQ 邮箱已绑定，可以开始同步账单了');
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '连接并保存';
+}
+
+async function deleteEmailConfig() {
+  if (!confirm('确认解绑 QQ 邮箱？已导入的账单不会删除。')) return;
+  try {
+    await API.deleteEmailConfig();
+    emailConfigured = false;
+    closeEmailSheet();
+    await loadEmailConfig();
+    showToast('已解绑邮箱');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function runEmailSync() {
+  const btn = document.getElementById('btn-email-sync-run');
+  const resultEl = document.getElementById('email-sync-result');
+  btn.disabled = true;
+  btn.textContent = '同步中，请稍候…';
+  resultEl.classList.add('hidden');
+
+  try {
+    const data = await API.runEmailSync();
+    resultEl.innerHTML = `
+      <div class="sync-result-banner success">
+        ✅ ${data.message}
+      </div>`;
+    resultEl.classList.remove('hidden');
+
+    // 更新最后同步时间
+    document.getElementById('email-last-sync').textContent =
+      '上次同步：' + new Date().toLocaleString('zh-CN');
+
+    if (data.inserted > 0) {
+      if (currentPage === 'transactions') fetchTxns();
+      if (currentPage === 'dashboard') loadDashboard();
+    }
+  } catch (e) {
+    resultEl.innerHTML = `<div class="sync-result-banner error">❌ ${e.message}</div>`;
+    resultEl.classList.remove('hidden');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🔄 立即同步近 90 天账单';
+}
+
 // ── 账单导入 ──────────────────────────────────────────────────────────────
 
 function openImportModal(source) {
