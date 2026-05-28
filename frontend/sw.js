@@ -1,4 +1,4 @@
-const CACHE = 'fire-v3';
+const CACHE = 'fire-v5';
 const STATIC = [
   '/',
   '/css/style.css',

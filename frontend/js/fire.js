@@ -38,7 +38,7 @@ function renderHero(s) {
     subtitleEl.textContent = '请录入收入/资产信息，并添加至少1笔支出记录';
   } else {
     yearsEl.textContent = s.years_to_fire;
-    subtitleEl.textContent = `距离财务自由还需 ${s.years_to_fire} 年（FIRE 目标 ${fmt(s.fire_number)}）`;
+    subtitleEl.textContent = `距离财务自由还需 ${s.years_to_fire} 年（FIRE 目标 ${fmt(s.fire_number)}，月总收入 ${fmt(s.monthly_total_income)}，加权收益率 ${s.weighted_return}%）`;
   }
 
   const pct = s.progress_pct || 0;
@@ -47,8 +47,14 @@ function renderHero(s) {
 }
 
 function renderStats(s) {
-  document.getElementById('stat-income').textContent   = fmt(s.monthly_income);
+  document.getElementById('stat-fixed-income').textContent = fmt(s.monthly_fixed_income);
+  // 理财收入小字
+  const investEl = document.getElementById('stat-invest-income');
+  if (investEl) investEl.textContent = `理财 ${fmt(s.monthly_investment_income)}/月`;
   document.getElementById('stat-expense').textContent  = fmt(s.avg_monthly_expense);
+  // 来源提示
+  const expHint = document.querySelector('.stat-card:nth-child(2) .hint');
+  if (expHint) expHint.textContent = s.expense_source === 'manual' ? '手动配置' : '账单均值';
   document.getElementById('stat-savings').textContent  = fmt(s.monthly_savings);
   document.getElementById('stat-rate').textContent     = s.savings_rate != null ? `${s.savings_rate}%` : '—';
 
@@ -62,11 +68,26 @@ async function renderProjectionChart(s) {
   const canvas = document.getElementById('chart-projection');
   if (!canvas) return;
 
+  // 月储蓄为负 → 不显示图表，显示提示
+  if (s.monthly_savings <= 0 || !s.has_data) {
+    if (projectionChart) { projectionChart.destroy(); projectionChart = null; }
+    const wrap = canvas.parentElement;
+    wrap.innerHTML = '<p class="chart-empty-tip">请先在 ⚙️ 配置中设置月收入和资产，并确保月储蓄大于零</p>';
+    return;
+  }
+
   let points = [];
   try {
     const res = await API.fireProjection(35);
     points = res.points || [];
   } catch (_) {}
+
+  // 防御：若后端仍返回空数组则提示
+  if (!points.length) {
+    if (projectionChart) { projectionChart.destroy(); projectionChart = null; }
+    canvas.parentElement.innerHTML = '<p class="chart-empty-tip">暂无有效预测数据，请完善收入与资产配置</p>';
+    return;
+  }
 
   const labels = points.map(p => `${p.year}年`);
   const assets = points.map(p => p.assets);
@@ -161,11 +182,12 @@ function renderAssetPie(assets) {
   const canvas = document.getElementById('chart-asset-pie');
   if (!canvas) return;
 
+  // assets = { cash: {amount, return}, stock: {...}, real_estate: {...}, other: {...} }
   const items = [
-    { label: '💵 现金', value: assets.cash || 0 },
-    { label: '📈 股票/基金', value: assets.stock || 0 },
-    { label: '🏠 房产', value: assets.real_estate || 0 },
-    { label: '💎 其他', value: assets.other || 0 },
+    { label: '💵 现金',   key: 'cash',        value: assets.cash?.amount || 0,        rate: assets.cash?.return || 0 },
+    { label: '📈 股票',   key: 'stock',       value: assets.stock?.amount || 0,       rate: assets.stock?.return || 0 },
+    { label: '🏠 房产',   key: 'real_estate', value: assets.real_estate?.amount || 0, rate: assets.real_estate?.return || 0 },
+    { label: '💎 债券',   key: 'other',       value: assets.other?.amount || 0,       rate: assets.other?.return || 0 },
   ].filter(i => i.value > 0);
 
   if (!items.length) {
@@ -187,7 +209,14 @@ function renderAssetPie(assets) {
       cutout: '68%',
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, padding: 6 } },
-        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmt(ctx.raw)}` } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const it = items[ctx.dataIndex];
+              return `${it.label}: ${fmt(it.value)}（年化 ${(it.rate * 100).toFixed(1)}%）`;
+            },
+          },
+        },
       },
     },
   });
@@ -214,26 +243,35 @@ async function renderAIHint() {
 async function openFireConfig() {
   try {
     const p = await API.fireProfile();
-    document.getElementById('cfg-income').value          = p.monthly_income || '';
-    document.getElementById('cfg-cash').value            = p.cash_assets || '';
-    document.getElementById('cfg-stock').value           = p.stock_assets || '';
-    document.getElementById('cfg-realestate').value      = p.real_estate_assets || '';
-    document.getElementById('cfg-other').value           = p.other_assets || '';
-    document.getElementById('cfg-return').value          = ((p.expected_return || 0.07) * 100).toFixed(1);
-    document.getElementById('cfg-multiplier').value      = p.fire_multiplier || 25;
+    document.getElementById('cfg-income').value           = p.monthly_fixed_income || '';
+    document.getElementById('cfg-expense').value          = p.monthly_expense || '';
+    document.getElementById('cfg-cash').value             = p.cash_assets || '';
+    document.getElementById('cfg-cash-return').value      = ((p.cash_return || 0.02) * 100).toFixed(1);
+    document.getElementById('cfg-stock').value            = p.stock_assets || '';
+    document.getElementById('cfg-stock-return').value     = ((p.stock_return || 0.08) * 100).toFixed(1);
+    document.getElementById('cfg-realestate').value       = p.real_estate_assets || '';
+    document.getElementById('cfg-realestate-return').value = ((p.real_estate_return || 0.04) * 100).toFixed(1);
+    document.getElementById('cfg-other').value            = p.other_assets || '';
+    document.getElementById('cfg-other-return').value     = ((p.other_return || 0.04) * 100).toFixed(1);
+    document.getElementById('cfg-multiplier').value       = p.fire_multiplier || 25;
     openModal('modal-fire-config');
   } catch (e) { toast(e.message, 'error'); }
 }
 
 async function saveFireConfig() {
+  const g = id => parseFloat(document.getElementById(id).value);
   const body = {
-    monthly_income:      parseFloat(document.getElementById('cfg-income').value) || 0,
-    cash_assets:         parseFloat(document.getElementById('cfg-cash').value) || 0,
-    stock_assets:        parseFloat(document.getElementById('cfg-stock').value) || 0,
-    real_estate_assets:  parseFloat(document.getElementById('cfg-realestate').value) || 0,
-    other_assets:        parseFloat(document.getElementById('cfg-other').value) || 0,
-    expected_return:     (parseFloat(document.getElementById('cfg-return').value) || 7) / 100,
-    fire_multiplier:     parseFloat(document.getElementById('cfg-multiplier').value) || 25,
+    monthly_fixed_income: g('cfg-income')             || 0,
+    monthly_expense:      g('cfg-expense')            || 0,
+    cash_assets:         g('cfg-cash')               || 0,
+    cash_return:         (g('cfg-cash-return')        || 2)  / 100,
+    stock_assets:        g('cfg-stock')              || 0,
+    stock_return:        (g('cfg-stock-return')       || 8)  / 100,
+    real_estate_assets:  g('cfg-realestate')         || 0,
+    real_estate_return:  (g('cfg-realestate-return')  || 4)  / 100,
+    other_assets:        g('cfg-other')              || 0,
+    other_return:        (g('cfg-other-return')       || 4)  / 100,
+    fire_multiplier:     g('cfg-multiplier')         || 25,
   };
   try {
     await API.updateFireProfile(body);

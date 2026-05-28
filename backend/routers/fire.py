@@ -14,14 +14,34 @@ from backend.services.fire_service import (
 router = APIRouter(prefix="/api/fire", tags=["fire"])
 
 
+def _profile_dict(profile):
+    return {
+        "monthly_fixed_income": profile.monthly_fixed_income,
+        "monthly_expense":      profile.monthly_expense,
+        "cash_assets":          profile.cash_assets,
+        "stock_assets":         profile.stock_assets,
+        "real_estate_assets":   profile.real_estate_assets,
+        "other_assets":         profile.other_assets,
+        "cash_return":          profile.cash_return,
+        "stock_return":         profile.stock_return,
+        "real_estate_return":   profile.real_estate_return,
+        "other_return":         profile.other_return,
+        "fire_multiplier":      profile.fire_multiplier,
+    }
+
+
 class FireProfileUpdate(BaseModel):
-    monthly_income: Optional[float] = None
-    cash_assets: Optional[float] = None
-    stock_assets: Optional[float] = None
-    real_estate_assets: Optional[float] = None
-    other_assets: Optional[float] = None
-    expected_return: Optional[float] = None
-    fire_multiplier: Optional[float] = None
+    monthly_fixed_income: Optional[float] = None
+    monthly_expense:      Optional[float] = None
+    cash_assets:          Optional[float] = None
+    stock_assets:         Optional[float] = None
+    real_estate_assets:   Optional[float] = None
+    other_assets:         Optional[float] = None
+    cash_return:          Optional[float] = None
+    stock_return:         Optional[float] = None
+    real_estate_return:   Optional[float] = None
+    other_return:         Optional[float] = None
+    fire_multiplier:      Optional[float] = None
 
 
 @router.get("/status")
@@ -37,16 +57,7 @@ def get_profile(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
-    profile = get_or_create_profile(db, user_id)
-    return {
-        "monthly_income": profile.monthly_income,
-        "cash_assets": profile.cash_assets,
-        "stock_assets": profile.stock_assets,
-        "real_estate_assets": profile.real_estate_assets,
-        "other_assets": profile.other_assets,
-        "expected_return": profile.expected_return,
-        "fire_multiplier": profile.fire_multiplier,
-    }
+    return _profile_dict(get_or_create_profile(db, user_id))
 
 
 @router.put("/profile")
@@ -60,15 +71,7 @@ def update_profile(
         setattr(profile, k, v)
     db.commit()
     db.refresh(profile)
-    return {
-        "monthly_income": profile.monthly_income,
-        "cash_assets": profile.cash_assets,
-        "stock_assets": profile.stock_assets,
-        "real_estate_assets": profile.real_estate_assets,
-        "other_assets": profile.other_assets,
-        "expected_return": profile.expected_return,
-        "fire_multiplier": profile.fire_multiplier,
-    }
+    return _profile_dict(profile)
 
 
 @router.get("/projection")

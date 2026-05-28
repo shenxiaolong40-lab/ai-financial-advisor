@@ -209,6 +209,12 @@ a { color: inherit; text-decoration: none; }
 .stat-value.income { color: var(--income); }
 .stat-value.expense { color: var(--expense); }
 .hint { font-size: 0.6rem; color: var(--text-3); }
+.stat-sublabel {
+  font-size: 0.68rem;
+  color: var(--income);
+  opacity: 0.75;
+  margin-top: 2px;
+}
 
 /* ── Charts ──────────────────────────────────────────────────── */
 .chart-wrap { height: 200px; position: relative; overflow: hidden; }
@@ -602,7 +608,52 @@ a { color: inherit; text-decoration: none; }
 .toast.toast-error { background: var(--danger); }
 .toast.toast-success { background: var(--success); }
 
+/* ── Chart empty state ───────────────────────────────────────── */
+.chart-empty-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 120px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-3);
+  padding: 16px;
+  line-height: 1.5;
+}
+
 /* ── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Config asset block（资产 + 收益率并排）─────────────────── */
+.cfg-hint {
+  font-size: 0.68rem;
+  color: var(--text-3);
+  margin-left: 4px;
+  font-weight: 400;
+}
+.cfg-asset-hint {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  margin: -8px 0 12px;
+}
+.cfg-asset-block {
+  margin-bottom: 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px 4px;
+}
+.cfg-asset-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-2);
+  margin-bottom: 8px;
+}
+.cfg-asset-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.cfg-asset-row .form-group { margin-bottom: 10px; }

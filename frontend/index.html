@@ -46,8 +46,9 @@
     <!-- 月度收支摘要 -->
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-label">月收入</div>
-        <div class="stat-value income" id="stat-income">—</div>
+        <div class="stat-label">固定月收入</div>
+        <div class="stat-value income" id="stat-fixed-income">—</div>
+        <div class="stat-sublabel" id="stat-invest-income">理财 —</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">月均支出 <span class="hint">近3月</span></div>
@@ -205,35 +206,76 @@
       <button data-close class="btn-close">×</button>
     </div>
     <div class="modal-body">
-      <div class="form-section-title">月收入</div>
+      <div class="form-section-title">收支设置</div>
       <div class="form-group">
-        <label>税后月收入（元）</label>
+        <label>固定月收入（元）<span class="cfg-hint">工资/副业等</span></label>
         <input id="cfg-income" type="number" placeholder="20000" min="0">
       </div>
+      <div class="form-group">
+        <label>月均支出（元）<span class="cfg-hint">0 = 自动从账单计算</span></label>
+        <input id="cfg-expense" type="number" placeholder="10000" min="0">
+      </div>
 
-      <div class="form-section-title">当前资产</div>
-      <div class="form-group">
-        <label>💵 现金 / 货币基金</label>
-        <input id="cfg-cash" type="number" placeholder="0" min="0">
+      <div class="form-section-title">资产 &amp; 各类收益率</div>
+      <div class="cfg-asset-hint">每类资产单独设置预期年化收益率</div>
+
+      <div class="cfg-asset-block">
+        <div class="cfg-asset-label">💵 现金 / 货基</div>
+        <div class="cfg-asset-row">
+          <div class="form-group">
+            <label>金额（元）</label>
+            <input id="cfg-cash" type="number" placeholder="0" min="0">
+          </div>
+          <div class="form-group">
+            <label>年化收益率（%）</label>
+            <input id="cfg-cash-return" type="number" placeholder="2" min="0" max="30" step="0.1">
+          </div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>📈 股票 / 股票基金</label>
-        <input id="cfg-stock" type="number" placeholder="0" min="0">
+
+      <div class="cfg-asset-block">
+        <div class="cfg-asset-label">📈 股票 / 基金</div>
+        <div class="cfg-asset-row">
+          <div class="form-group">
+            <label>金额（元）</label>
+            <input id="cfg-stock" type="number" placeholder="0" min="0">
+          </div>
+          <div class="form-group">
+            <label>年化收益率（%）</label>
+            <input id="cfg-stock-return" type="number" placeholder="8" min="0" max="50" step="0.1">
+          </div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>🏠 房产市值</label>
-        <input id="cfg-realestate" type="number" placeholder="0" min="0">
+
+      <div class="cfg-asset-block">
+        <div class="cfg-asset-label">🏠 房产</div>
+        <div class="cfg-asset-row">
+          <div class="form-group">
+            <label>市值（元）</label>
+            <input id="cfg-realestate" type="number" placeholder="0" min="0">
+          </div>
+          <div class="form-group">
+            <label>年化收益率（%）</label>
+            <input id="cfg-realestate-return" type="number" placeholder="4" min="0" max="30" step="0.1">
+          </div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>💎 其他（债券/黄金等）</label>
-        <input id="cfg-other" type="number" placeholder="0" min="0">
+
+      <div class="cfg-asset-block">
+        <div class="cfg-asset-label">💎 债券 / 其他</div>
+        <div class="cfg-asset-row">
+          <div class="form-group">
+            <label>金额（元）</label>
+            <input id="cfg-other" type="number" placeholder="0" min="0">
+          </div>
+          <div class="form-group">
+            <label>年化收益率（%）</label>
+            <input id="cfg-other-return" type="number" placeholder="4" min="0" max="30" step="0.1">
+          </div>
+        </div>
       </div>
 
       <div class="form-section-title">FIRE 参数</div>
-      <div class="form-group">
-        <label>预期年化收益率（%）</label>
-        <input id="cfg-return" type="number" placeholder="7" min="0" max="30" step="0.5">
-      </div>
       <div class="form-group">
         <label>FIRE 倍数（默认25，即4%法则）</label>
         <input id="cfg-multiplier" type="number" placeholder="25" min="10" max="50">

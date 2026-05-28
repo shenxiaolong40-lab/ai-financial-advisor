@@ -42,21 +42,30 @@ def _build_fire_context(db: Session, user_id: int) -> str:
         for c in status["category_breakdown"][:6]
     ) or "  暂无支出数据"
 
-    assets = status["asset_breakdown"]
+    ab = status["asset_breakdown"]
     total = status["total_assets"]
+
+    def _fmt_asset(key, label):
+        a = ab.get(key, {})
+        amt = a.get('amount', 0)
+        ret = a.get('return', 0)
+        return f"  {label}：¥{amt:,.0f}（年化 {ret*100:.1f}%）"
 
     return (
         f"【用户当前 FIRE 状态】\n"
         f"FIRE 数字：¥{status['fire_number']:,.0f}（目标净资产）\n"
         f"当前总资产：¥{total:,.0f}（完成度 {status['progress_pct']}%）\n"
-        f"  现金/货基：¥{assets['cash']:,.0f}\n"
-        f"  股票/基金：¥{assets['stock']:,.0f}\n"
-        f"  房产：¥{assets['real_estate']:,.0f}\n"
-        f"  其他：¥{assets['other']:,.0f}\n"
-        f"月收入：¥{status['monthly_income']:,.0f}\n"
+        + _fmt_asset('cash',        '现金/货基') + "\n"
+        + _fmt_asset('stock',       '股票/基金') + "\n"
+        + _fmt_asset('real_estate', '房产') + "\n"
+        + _fmt_asset('other',       '债券/其他') + "\n"
+        + f"综合加权收益率：{status['weighted_return']}%\n"
+        f"固定月收入（工资/副业）：¥{status['monthly_fixed_income']:,.0f}\n"
+        f"理财月收入（资产×收益率/12）：¥{status['monthly_investment_income']:,.0f}\n"
+        f"月总收入：¥{status['monthly_total_income']:,.0f}\n"
         f"月均支出（近3月）：¥{status['avg_monthly_expense']:,.0f}\n"
-        f"月储蓄：¥{status['monthly_savings']:,.0f}（储蓄率 {status['savings_rate']}%）\n"
-        f"预计财务自由：{years_str}（年化 {status['expected_return']*100:.0f}% 收益）\n\n"
+        f"月储蓄（固定收入-支出）：¥{status['monthly_savings']:,.0f}（固收储蓄率 {status['savings_rate']}%）\n"
+        f"预计财务自由：{years_str}\n\n"
         f"近3月支出分布：\n{cat_lines}"
     )
 

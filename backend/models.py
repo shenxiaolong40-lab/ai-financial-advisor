@@ -57,14 +57,19 @@ class FireProfile(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), unique=True)
-    monthly_income: Mapped[float] = mapped_column(Float, default=0.0)
+    monthly_fixed_income: Mapped[float] = mapped_column(Float, default=0.0)   # 固定收入（工资/副业）
+    monthly_expense: Mapped[float] = mapped_column(Float, default=10000.0)  # 0=自动从账单计算
     # 分类资产
     cash_assets: Mapped[float] = mapped_column(Float, default=0.0)          # 现金/货币基金
     stock_assets: Mapped[float] = mapped_column(Float, default=0.0)         # 股票/基金
     real_estate_assets: Mapped[float] = mapped_column(Float, default=0.0)   # 房产市值
     other_assets: Mapped[float] = mapped_column(Float, default=0.0)         # 其他（债券/黄金等）
+    # 分类资产收益率
+    cash_return: Mapped[float] = mapped_column(Float, default=0.02)          # 现金/货基年化收益率
+    stock_return: Mapped[float] = mapped_column(Float, default=0.08)         # 股票/基金年化收益率
+    real_estate_return: Mapped[float] = mapped_column(Float, default=0.04)   # 房产年化收益率
+    other_return: Mapped[float] = mapped_column(Float, default=0.04)         # 债券/其他年化收益率
     # FIRE 参数
-    expected_return: Mapped[float] = mapped_column(Float, default=0.07)     # 年化收益率
     fire_multiplier: Mapped[float] = mapped_column(Float, default=25.0)     # 倍数（4%法则=25）
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

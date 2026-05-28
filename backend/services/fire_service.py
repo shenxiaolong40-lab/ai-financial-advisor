@@ -1,6 +1,7 @@
 """
 FIRE（财务独立、提前退休）核心计算服务
 使用 4% 安全提取率法则：FIRE数字 = 年均支出 × 倍数（默认25）
+各资产类别采用不同收益率，加权平均后代入复利公式。
 """
 from __future__ import annotations
 
@@ -23,10 +24,24 @@ def get_or_create_profile(db: Session, user_id: int) -> FireProfile:
     return profile
 
 
+def _weighted_return(profile: FireProfile) -> float:
+    """按资产规模加权计算综合年化收益率"""
+    assets = [
+        (profile.cash_assets,         profile.cash_return),
+        (profile.stock_assets,        profile.stock_return),
+        (profile.real_estate_assets,  profile.real_estate_return),
+        (profile.other_assets,        profile.other_return),
+    ]
+    total = sum(a for a, _ in assets)
+    if total <= 0:
+        # 无资产时用简单平均
+        return sum(r for _, r in assets) / len(assets)
+    return sum(a * r for a, r in assets) / total
+
+
 def _avg_monthly_expense(db: Session, user_id: int, months: int = 3) -> float:
     """计算近 N 个月月均支出（基于实际交易记录）"""
     today = date.today()
-    # 往前推 months 个月
     year = today.year
     month = today.month - months
     while month <= 0:
@@ -42,7 +57,6 @@ def _avg_monthly_expense(db: Session, user_id: int, months: int = 3) -> float:
     ).all()
 
     total = sum(t.amount for t in txns)
-    # 如果没有记录，返回 0（不是 None，让调用方判断）
     return total / months if total > 0 else 0.0
 
 
@@ -93,7 +107,6 @@ def _years_to_fire(
 
     r = annual_return / 12  # 月化收益率
     if r <= 0:
-        # 无收益时线性计算
         months = (fire_number - current_assets) / monthly_savings
         return months / 12
 
@@ -108,7 +121,6 @@ def _years_to_fire(
         return None
     ratio = target / base
     if ratio <= 1:
-        # base >= target 意味着初始资产已超过目标（含储蓄加速）
         return 0.0
 
     n_months = log(ratio) / log(1 + r)
@@ -125,13 +137,26 @@ def calculate_fire_status(db: Session, user_id: int) -> dict:
         + profile.other_assets
     )
 
-    avg_expense = _avg_monthly_expense(db, user_id, months=3)
-    monthly_income = profile.monthly_income
-    monthly_savings = monthly_income - avg_expense
-    savings_rate = (monthly_savings / monthly_income * 100) if monthly_income > 0 else 0.0
+    # 月均支出：优先使用手动配置值（>0），否则从近3月账单自动计算
+    txn_avg = _avg_monthly_expense(db, user_id, months=3)
+    avg_expense = profile.monthly_expense if profile.monthly_expense > 0 else txn_avg
+    expense_source = "manual" if profile.monthly_expense > 0 else "auto"
+
+    weighted_return = _weighted_return(profile)
+
+    # 固定收入（工资/副业等）
+    monthly_fixed_income = profile.monthly_fixed_income
+    # 理财收入 = 当前总资产 × 加权年化收益率 / 12（已通过复利体现，仅用于展示）
+    monthly_investment_income = round(total_assets * weighted_return / 12, 2)
+    # 月总收入（展示用）
+    monthly_total_income = monthly_fixed_income + monthly_investment_income
+
+    # FIRE 公式中月储蓄 = 固定收入 - 支出（理财收入通过复利已计入资产增长，不重复计）
+    monthly_savings = monthly_fixed_income - avg_expense
+    savings_rate = (monthly_savings / monthly_fixed_income * 100) if monthly_fixed_income > 0 else 0.0
 
     fire_number = avg_expense * 12 * profile.fire_multiplier
-    years = _years_to_fire(total_assets, fire_number, monthly_savings, profile.expected_return)
+    years = _years_to_fire(total_assets, fire_number, monthly_savings, weighted_return)
     progress_pct = min(total_assets / fire_number * 100, 100.0) if fire_number > 0 else 0.0
 
     category_breakdown = _expense_by_category(db, user_id, months=3)
@@ -140,36 +165,45 @@ def calculate_fire_status(db: Session, user_id: int) -> dict:
         "fire_number": round(fire_number, 2),
         "total_assets": round(total_assets, 2),
         "progress_pct": round(progress_pct, 1),
-        "monthly_income": monthly_income,
+        # 收入明细
+        "monthly_fixed_income": monthly_fixed_income,
+        "monthly_investment_income": monthly_investment_income,
+        "monthly_total_income": round(monthly_total_income, 2),
         "avg_monthly_expense": round(avg_expense, 2),
+        "expense_source": expense_source,   # "manual" | "auto"
         "monthly_savings": round(monthly_savings, 2),
         "savings_rate": round(savings_rate, 1),
         "years_to_fire": round(years, 1) if years is not None else None,
-        "expected_return": profile.expected_return,
+        "weighted_return": round(weighted_return * 100, 2),   # 百分比，方便前端展示
         "fire_multiplier": profile.fire_multiplier,
         "asset_breakdown": {
-            "cash": profile.cash_assets,
-            "stock": profile.stock_assets,
-            "real_estate": profile.real_estate_assets,
-            "other": profile.other_assets,
+            "cash":         {"amount": profile.cash_assets,        "return": profile.cash_return},
+            "stock":        {"amount": profile.stock_assets,       "return": profile.stock_return},
+            "real_estate":  {"amount": profile.real_estate_assets, "return": profile.real_estate_return},
+            "other":        {"amount": profile.other_assets,       "return": profile.other_return},
         },
         "category_breakdown": category_breakdown,
-        "has_data": avg_expense > 0,  # 是否有足够的交易数据
+        "has_data": avg_expense > 0,
     }
 
 
 def calculate_projection(db: Session, user_id: int, years: int = 30) -> list[dict]:
-    """生成资产增长预测曲线（年度数据点）"""
+    """生成资产增长预测曲线（年度数据点）；月储蓄≤0时返回空列表"""
     profile = get_or_create_profile(db, user_id)
-    avg_expense = _avg_monthly_expense(db, user_id, months=3)
+    txn_avg = _avg_monthly_expense(db, user_id, months=3)
+    avg_expense = profile.monthly_expense if profile.monthly_expense > 0 else txn_avg
 
     total_assets = (
         profile.cash_assets + profile.stock_assets
         + profile.real_estate_assets + profile.other_assets
     )
-    monthly_savings = profile.monthly_income - avg_expense
+    monthly_savings = profile.monthly_fixed_income - avg_expense
     fire_number = avg_expense * 12 * profile.fire_multiplier
-    r = profile.expected_return / 12
+    r = _weighted_return(profile) / 12
+
+    # 月储蓄为负时无法预测，直接返回空
+    if monthly_savings <= 0 or fire_number <= 0:
+        return []
 
     points = []
     assets = total_assets
