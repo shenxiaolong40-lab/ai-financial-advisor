@@ -10,14 +10,13 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 class ChatRequest(BaseModel):
     message: str
-    deep: bool = False
 
 
 @router.post("/chat")
 async def chat(body: ChatRequest, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     if not body.message.strip():
         raise HTTPException(400, "消息不能为空")
-    result = await ai_service.chat(body.message, db, user_id=user_id, deep=body.deep)
+    result = await ai_service.chat(body.message, db, user_id=user_id)
     return result
 
 

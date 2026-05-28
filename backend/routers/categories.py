@@ -7,16 +7,16 @@ from backend.models import Category
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
 SYSTEM_CATEGORIES = [
-    {"name": "餐饮", "icon": "🍜", "parent_id": None},
-    {"name": "交通", "icon": "🚗", "parent_id": None},
-    {"name": "购物", "icon": "🛒", "parent_id": None},
-    {"name": "娱乐", "icon": "🎮", "parent_id": None},
-    {"name": "医疗", "icon": "🏥", "parent_id": None},
-    {"name": "教育", "icon": "📚", "parent_id": None},
-    {"name": "居家", "icon": "🏠", "parent_id": None},
-    {"name": "工资", "icon": "💼", "parent_id": None},
-    {"name": "副业", "icon": "💡", "parent_id": None},
-    {"name": "其他", "icon": "📦", "parent_id": None},
+    {"name": "餐饮", "icon": "🍜"},
+    {"name": "交通", "icon": "🚗"},
+    {"name": "购物", "icon": "🛒"},
+    {"name": "娱乐", "icon": "🎮"},
+    {"name": "医疗", "icon": "🏥"},
+    {"name": "教育", "icon": "📚"},
+    {"name": "居家", "icon": "🏠"},
+    {"name": "工资", "icon": "💼"},
+    {"name": "副业", "icon": "💡"},
+    {"name": "其他", "icon": "📦"},
 ]
 
 

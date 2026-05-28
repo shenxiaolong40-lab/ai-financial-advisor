@@ -1,170 +1,199 @@
-let txnTypeFilter = '';
-let txnEditData = null;
-let txnSearchTimeout = null;
+// 收支记录页
 
-function loadTransactions() {
-  const monthInput = document.getElementById('txn-month-filter');
-  if (!monthInput.value) monthInput.value = currentMonth();
-  fetchTxns();
+let txnMonth = '';
+let txnFilter = '';
+let txnCats = [];
 
-  monthInput.addEventListener('change', fetchTxns);
-
-  document.querySelectorAll('.toggle-tab[data-type]').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.toggle-tab[data-type]').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      txnTypeFilter = tab.dataset.type;
-      fetchTxns();
-    });
-  });
-
-  document.getElementById('txn-search').addEventListener('input', () => {
-    clearTimeout(txnSearchTimeout);
-    txnSearchTimeout = setTimeout(fetchTxns, 350);
-  });
+async function loadTransactions() {
+  if (!txnMonth) txnMonth = currentMonth();
+  txnCats = await getCategories();
+  renderMonthNav();
+  await refreshTransactions();
 }
 
-async function fetchTxns() {
-  const params = {};
-  const month = document.getElementById('txn-month-filter')?.value;
-  if (month) params.month = month;
-  if (txnTypeFilter) params.type = txnTypeFilter;
-  const search = document.getElementById('txn-search')?.value;
+function renderMonthNav() {
+  document.getElementById('txn-month-label').textContent = txnMonth;
+}
+
+async function refreshTransactions() {
+  const params = { month: txnMonth, page_size: 100 };
+  if (txnFilter) params.type = txnFilter;
+  const search = document.getElementById('txn-search')?.value.trim();
   if (search) params.search = search;
-  params.page_size = 100;
 
   try {
-    const [data, summary] = await Promise.all([
-      API.transactions(params),
-      month ? API.dashboard(month) : Promise.resolve(null),
-    ]);
-    renderTxnStats(summary, data.total);
+    const data = await API.transactions(params);
+    renderTxnStats(data.items);
     renderTxnList(data.items);
-  } catch (e) {
-    console.error('Txn error', e);
-  }
+  } catch (e) { toast(e.message, 'error'); }
 }
 
-function renderTxnStats(summary, total) {
-  const el = document.getElementById('txn-stats');
-  if (!el) return;
-  if (!summary) { el.innerHTML = ''; return; }
-  el.innerHTML = `
-    <span class="txn-stat-item">共 <strong>${total}</strong> 条</span>
-    <span class="txn-stat-item">收入 <strong style="color:var(--success)">${fmt(summary.total_income)}</strong></span>
-    <span class="txn-stat-item">支出 <strong style="color:var(--danger)">${fmt(summary.total_expense)}</strong></span>
-    <span class="txn-stat-item">结余 <strong>${fmt(summary.balance)}</strong></span>
-  `;
+function renderTxnStats(items) {
+  const income  = items.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const expense = items.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  document.getElementById('txn-income-total').textContent  = fmt(income);
+  document.getElementById('txn-expense-total').textContent = fmt(expense);
+  document.getElementById('txn-balance').textContent       = fmt(income - expense);
 }
 
 function renderTxnList(items) {
-  const el = document.getElementById('txn-list');
-  if (!items || !items.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div>暂无记录</div>';
+  const container = document.getElementById('txn-list');
+  if (!items.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>本月暂无记录</p></div>';
     return;
   }
 
-  const grouped = {};
+  const groups = {};
   items.forEach(t => {
-    if (!grouped[t.date]) grouped[t.date] = [];
-    grouped[t.date].push(t);
+    if (!groups[t.date]) groups[t.date] = [];
+    groups[t.date].push(t);
   });
 
-  el.innerHTML = Object.entries(grouped)
-    .sort(([a], [b]) => b.localeCompare(a))
-    .map(([date, txns]) => `
-      <div class="txn-group-date">${date}</div>
-      <div class="card" style="padding:0 16px;">
-        ${txns.map(t => `
-          <div class="txn-item" onclick="openEditTxn(${t.id})">
-            <div class="txn-icon">${t.category_icon || '📦'}</div>
-            <div class="txn-info">
-              <div class="txn-name">${t.merchant || t.description || '未知'}</div>
-              <div class="txn-sub">${t.category_name || '未分类'}${t.description ? ' · ' + t.description : ''}</div>
-            </div>
-            <div class="txn-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${fmt(t.amount)}</div>
-          </div>`).join('')}
-      </div>`).join('');
+  container.innerHTML = Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(date => `
+    <div class="txn-date-group">
+      <div class="txn-date-label">${formatDate(date)}</div>
+      ${groups[date].map(t => `
+        <div class="txn-item" data-id="${t.id}">
+          <div class="txn-icon">${t.category_icon || (t.type === 'income' ? '💰' : '💸')}</div>
+          <div class="txn-info">
+            <div class="txn-title">${t.merchant || t.description || t.category_name || '未分类'}</div>
+            ${t.category_name ? `<div class="txn-sub">${t.category_name}</div>` : ''}
+          </div>
+          <div class="txn-amount ${t.type}">
+            ${t.type === 'income' ? '+' : '-'}${fmt(t.amount)}
+          </div>
+          <button class="btn-icon txn-delete" data-id="${t.id}">×</button>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.txn-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm('确认删除？')) return;
+      try {
+        await API.deleteTxn(btn.dataset.id);
+        toast('已删除');
+        refreshTransactions();
+        loadFireDashboard();
+      } catch (err) { toast(err.message, 'error'); }
+    });
+  });
+
+  container.querySelectorAll('.txn-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.classList.contains('txn-delete')) return;
+      openEditTxn(item.dataset.id, items);
+    });
+  });
+}
+
+function formatDate(d) {
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (d === today) return '今天';
+  if (d === yesterday) return '昨天';
+  const dt = new Date(d);
+  return `${dt.getMonth() + 1}月${dt.getDate()}日`;
 }
 
 function openAddTxn() {
-  txnEditData = null;
-  document.getElementById('txn-edit-id').value = '';
-  document.getElementById('modal-txn-title').textContent = '新增交易';
-  document.getElementById('txn-amount').value = '';
-  document.getElementById('txn-merchant').value = '';
-  document.getElementById('txn-desc').value = '';
-  document.getElementById('txn-date').value = today();
-  document.getElementById('txn-delete-row').classList.add('hidden');
-  setTxnType('expense');
-  populateCategorySelect('txn-category');
-  populateAccountSelect('txn-account');
+  document.getElementById('txn-form').reset();
+  document.getElementById('txn-id').value   = '';
+  document.getElementById('txn-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('modal-txn-title').textContent = '添加记录';
+  populateCategorySelect(null);
   openModal('modal-txn');
 }
 
-async function openEditTxn(id) {
-  try {
-    const data = await API.transactions({ page_size: 200 });
-    const t = data.items.find(i => i.id === id);
-    if (!t) return;
-    txnEditData = t;
-    document.getElementById('txn-edit-id').value = t.id;
-    document.getElementById('modal-txn-title').textContent = '编辑交易';
-    document.getElementById('txn-amount').value = t.amount;
-    document.getElementById('txn-merchant').value = t.merchant || '';
-    document.getElementById('txn-desc').value = t.description || '';
-    document.getElementById('txn-date').value = t.date;
-    document.getElementById('txn-delete-row').classList.remove('hidden');
-    setTxnType(t.type);
-    populateCategorySelect('txn-category');
-    populateAccountSelect('txn-account');
-    if (t.category_id) document.getElementById('txn-category').value = t.category_id;
-    if (t.account_id) document.getElementById('txn-account').value = t.account_id;
-    openModal('modal-txn');
-  } catch (e) { console.error(e); }
+function openEditTxn(id, items) {
+  const t = items.find(x => x.id == id);
+  if (!t) return;
+  document.getElementById('txn-id').value          = t.id;
+  document.getElementById('txn-type').value        = t.type;
+  document.getElementById('txn-amount').value      = t.amount;
+  document.getElementById('txn-date').value        = t.date;
+  document.getElementById('txn-merchant').value    = t.merchant || '';
+  document.getElementById('txn-description').value = t.description || '';
+  document.getElementById('modal-txn-title').textContent = '编辑记录';
+  populateCategorySelect(t.category_id);
+  openModal('modal-txn');
 }
 
-function setTxnType(type) {
-  document.querySelectorAll('[data-txntype]').forEach(t => {
-    t.classList.toggle('active', t.dataset.txntype === type);
-  });
-}
-
-function getSelectedTxnType() {
-  return document.querySelector('[data-txntype].active')?.dataset.txntype || 'expense';
+function populateCategorySelect(selected) {
+  const sel = document.getElementById('txn-category');
+  sel.innerHTML = '<option value="">— 选择分类 —</option>' +
+    txnCats.map(c => `<option value="${c.id}" ${c.id == selected ? 'selected' : ''}>${c.icon} ${c.name}</option>`).join('');
 }
 
 async function saveTxn() {
-  const id = document.getElementById('txn-edit-id').value;
+  const id = document.getElementById('txn-id').value;
   const body = {
-    amount: parseFloat(document.getElementById('txn-amount').value) || 0,
-    type: getSelectedTxnType(),
-    date: document.getElementById('txn-date').value,
-    merchant: document.getElementById('txn-merchant').value,
-    description: document.getElementById('txn-desc').value,
+    type:        document.getElementById('txn-type').value,
+    amount:      parseFloat(document.getElementById('txn-amount').value),
+    date:        document.getElementById('txn-date').value,
+    merchant:    document.getElementById('txn-merchant').value.trim(),
+    description: document.getElementById('txn-description').value.trim(),
     category_id: parseInt(document.getElementById('txn-category').value) || null,
-    account_id: parseInt(document.getElementById('txn-account').value) || null,
   };
-  if (!body.amount || !body.date) return alert('请填写金额和日期');
+  if (!body.amount || !body.date) { toast('请填写金额和日期', 'error'); return; }
   try {
-    if (id) {
-      await API.updateTxn(id, body);
-    } else {
-      await API.createTxn(body);
-    }
+    if (id) { await API.updateTxn(id, body); toast('已更新'); }
+    else     { await API.createTxn(body);     toast('已添加'); }
     closeModal('modal-txn');
-    fetchTxns();
-    if (currentPage === 'dashboard') loadDashboard();
-  } catch (e) { alert(e.message); }
+    refreshTransactions();
+    loadFireDashboard();
+  } catch (e) { toast(e.message, 'error'); }
 }
 
-async function deleteTxn() {
-  const id = document.getElementById('txn-edit-id').value;
-  if (!id || !confirm('确认删除这条交易记录？')) return;
+async function doImport(source) {
+  const file = document.getElementById('import-file').files[0];
+  if (!file) { toast('请先选择文件', 'error'); return; }
+  const resultEl = document.getElementById('import-result');
+  resultEl.textContent = '导入中...';
+  resultEl.className = 'import-result';
   try {
-    await API.deleteTxn(id);
-    closeModal('modal-txn');
-    fetchTxns();
-    if (currentPage === 'dashboard') loadDashboard();
-  } catch (e) { alert(e.message); }
+    const r = await API.importBill(source, file);
+    resultEl.textContent = r.message;
+    resultEl.className = 'import-result success';
+    refreshTransactions();
+    loadFireDashboard();
+  } catch (e) {
+    resultEl.textContent = e.message;
+    resultEl.className = 'import-result error';
+  }
 }
+
+function prevMonth() {
+  const [y, m] = txnMonth.split('-').map(Number);
+  txnMonth = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+  renderMonthNav(); refreshTransactions();
+}
+
+function nextMonth() {
+  const [y, m] = txnMonth.split('-').map(Number);
+  txnMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+  renderMonthNav(); refreshTransactions();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-prev-month')?.addEventListener('click', prevMonth);
+  document.getElementById('btn-next-month')?.addEventListener('click', nextMonth);
+  document.getElementById('btn-add-txn')?.addEventListener('click', openAddTxn);
+  document.getElementById('btn-save-txn')?.addEventListener('click', saveTxn);
+
+  document.getElementById('btn-import-alipay')?.addEventListener('click', () => doImport('alipay'));
+  document.getElementById('btn-import-wechat')?.addEventListener('click', () => doImport('wechat'));
+
+  document.querySelectorAll('.txn-type-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.txn-type-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      txnFilter = btn.dataset.filter;
+      refreshTransactions();
+    });
+  });
+
+  document.getElementById('txn-search')?.addEventListener('input', () => refreshTransactions());
+});

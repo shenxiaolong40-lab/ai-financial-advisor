@@ -220,12 +220,11 @@ def parse_wechat(data: bytes) -> list[ParsedRow]:
 
 # ─── 写入数据库 ───────────────────────────────────────────────────────────────
 
-def import_rows(rows: list[ParsedRow], account_id: Optional[int], db: Session, user_id: int = 1) -> dict:
+def import_rows(rows: list[ParsedRow], db: Session, user_id: int = 1) -> dict:
     inserted = 0
     skipped = 0
 
     for row in rows:
-        # 去重检查
         if row.sync_id:
             exists = db.query(Transaction).filter(
                 Transaction.sync_source == row.sync_source,
@@ -235,7 +234,6 @@ def import_rows(rows: list[ParsedRow], account_id: Optional[int], db: Session, u
                 skipped += 1
                 continue
 
-        # 自动归类
         cat_id = _guess_category_id(row.merchant, row.description, row.raw_category)
 
         from datetime import date as PyDate
@@ -247,7 +245,6 @@ def import_rows(rows: list[ParsedRow], account_id: Optional[int], db: Session, u
 
         txn = Transaction(
             user_id=user_id,
-            account_id=account_id,
             category_id=cat_id,
             amount=row.amount,
             type=row.tx_type,

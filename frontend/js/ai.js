@@ -1,117 +1,121 @@
+// AI 财务自由顾问页
+
 let aiLoaded = false;
 let aiSending = false;
 
+const QUICK_PROMPTS = [
+  '如何提前 5 年实现财务自由？',
+  '我的支出里哪项最值得压缩？',
+  '现在的资产配置合理吗？',
+  '帮我分析一下储蓄率',
+];
+
 async function loadAI() {
-  if (aiLoaded) return;
-  aiLoaded = true;
-  await loadAIHistory();
-  if (!document.getElementById('ai-messages').children.length) {
-    appendMsg('assistant', '你好！我是你的 **AI 财务顾问** 👋\n\n我已接入你的真实账单数据，可以帮你分析消费习惯、评估储蓄目标、给出具体的省钱建议。\n\n试试下方的快捷问题，或直接输入你的问题。');
+  if (!aiLoaded) {
+    aiLoaded = true;
+    await loadAIHistory();
+    renderQuickPrompts();
   }
 }
 
 async function loadAIHistory() {
   try {
     const history = await API.aiHistory();
-    const el = document.getElementById('ai-messages');
-    el.innerHTML = '';
-    history.forEach(h => {
-      if (h.role === 'user' || h.role === 'assistant') {
-        appendMsg(h.role, h.content, false);
-      }
-    });
-    el.scrollTop = el.scrollHeight;
+    const container = document.getElementById('ai-messages');
+    container.innerHTML = '';
+    history.forEach(m => appendMessage(m.role, m.content));
+    scrollToBottom();
+  } catch (_) {}
+}
+
+function renderQuickPrompts() {
+  const container = document.getElementById('ai-quick-prompts');
+  if (!container) return;
+  container.innerHTML = QUICK_PROMPTS.map(q =>
+    `<button class="quick-prompt-btn" data-q="${q}">${q}</button>`
+  ).join('');
+  container.querySelectorAll('.quick-prompt-btn').forEach(btn => {
+    btn.addEventListener('click', () => sendMessage(btn.dataset.q));
+  });
+}
+
+function appendMessage(role, content) {
+  const container = document.getElementById('ai-messages');
+  const el = document.createElement('div');
+  el.className = `chat-msg chat-${role}`;
+  // 简单 markdown 加粗支持
+  el.innerHTML = content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  container.appendChild(el);
+}
+
+function scrollToBottom() {
+  const container = document.getElementById('ai-messages');
+  container.scrollTop = container.scrollHeight;
+}
+
+async function generateAnalysis() {
+  const btn = document.getElementById('btn-ai-analysis');
+  if (btn) { btn.disabled = true; btn.textContent = '分析中...'; }
+  try {
+    const r = await API.aiAnalysis();
+    appendMessage('assistant', r.report || '暂无数据');
+    scrollToBottom();
   } catch (e) {
-    console.error('Load history error', e);
+    appendMessage('assistant', '分析失败：' + e.message);
+    scrollToBottom();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 生成 FIRE 优化报告'; }
   }
 }
 
-function appendMsg(role, text, scroll = true) {
-  const el = document.getElementById('ai-messages');
-  const div = document.createElement('div');
-  div.className = 'msg-bubble ' + role;
-  div.innerHTML = mdToHtml(text);
-  el.appendChild(div);
-  if (scroll) el.scrollTop = el.scrollHeight;
-  return div;
-}
-
-function mdToHtml(text) {
-  return text
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br>');
-}
-
-async function sendAI() {
-  if (aiSending) return;
+async function sendMessage(text) {
   const input = document.getElementById('ai-input');
-  const text = input.value.trim();
-  if (!text) return;
-
-  input.value = '';
-  aiSending = true;
-  appendMsg('user', text);
-
-  const typingDiv = appendMsg('assistant', '');
-  typingDiv.innerHTML = '<span class="ai-typing"><span></span><span></span><span></span></span>';
-
-  try {
-    const data = await API.aiChat({ message: text });
-    typingDiv.innerHTML = mdToHtml(data.reply || '暂无回复');
-    if (data.model) {
-      const modelTag = document.createElement('div');
-      modelTag.className = 'ai-model-tag';
-      modelTag.textContent = '⚡ DeepSeek';
-      typingDiv.appendChild(modelTag);
-    }
-  } catch (e) {
-    typingDiv.innerHTML = `<span style="color:var(--danger)">请求失败：${e.message}</span>`;
-  }
-
-  document.getElementById('ai-messages').scrollTop = 99999;
-  aiSending = false;
-}
-
-async function runAnalysis() {
-  if (aiSending) return;
+  const msg = text || (input?.value.trim());
+  if (!msg || aiSending) return;
+  if (input) input.value = '';
   aiSending = true;
 
-  const btn = document.getElementById('btn-analysis');
-  if (btn) { btn.disabled = true; btn.textContent = '分析中…'; }
-
-  const typingDiv = appendMsg('assistant', '');
-  typingDiv.innerHTML = '📊 正在生成本月财务分析报告…<br><span class="ai-typing"><span></span><span></span><span></span></span>';
-  document.getElementById('ai-messages').scrollTop = 99999;
+  appendMessage('user', msg);
+  const loadingEl = document.createElement('div');
+  loadingEl.className = 'chat-msg chat-assistant chat-loading';
+  loadingEl.textContent = '顾问思考中…';
+  document.getElementById('ai-messages').appendChild(loadingEl);
+  scrollToBottom();
 
   try {
-    const data = await API.aiAnalysis();
-    typingDiv.innerHTML = mdToHtml(data.report || '分析完成');
-    const modelTag = document.createElement('div');
-    modelTag.className = 'ai-model-tag';
-    modelTag.textContent = '🧠 DeepSeek 深度分析';
-    typingDiv.appendChild(modelTag);
+    const r = await API.aiChat(msg);
+    loadingEl.remove();
+    appendMessage('assistant', r.reply || '暂无回复');
+    scrollToBottom();
   } catch (e) {
-    typingDiv.innerHTML = `<span style="color:var(--danger)">分析失败：${e.message}</span>`;
+    loadingEl.remove();
+    appendMessage('assistant', '请求失败：' + e.message);
+    scrollToBottom();
+  } finally {
+    aiSending = false;
   }
-
-  document.getElementById('ai-messages').scrollTop = 99999;
-  if (btn) { btn.disabled = false; btn.textContent = '📊 生成分析报告'; }
-  aiSending = false;
 }
 
 async function clearAIHistory() {
-  if (!confirm('确认清空对话记录？')) return;
+  if (!confirm('清空所有对话历史？')) return;
   try {
     await API.aiClearHistory();
     document.getElementById('ai-messages').innerHTML = '';
     aiLoaded = false;
-    loadAI();
-    showToast('对话已清空');
-  } catch (e) { alert(e.message); }
+    toast('已清空');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
-function sendQuick(text) {
-  document.getElementById('ai-input').value = text;
-  sendAI();
-}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-ai-analysis')?.addEventListener('click', generateAnalysis);
+  document.getElementById('btn-ai-clear')?.addEventListener('click', clearAIHistory);
+
+  document.getElementById('btn-ai-send')?.addEventListener('click', () => sendMessage());
+
+  document.getElementById('ai-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+});

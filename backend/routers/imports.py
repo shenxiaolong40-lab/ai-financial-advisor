@@ -1,7 +1,6 @@
-from fastapi import APIRouter, Depends, File, UploadFile, Form, HTTPException
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from typing import Optional
 from backend.database import get_db
 from backend.deps import get_current_user_id
 from backend.services.sync_service import parse_alipay, parse_wechat, import_rows
@@ -13,7 +12,6 @@ router = APIRouter(prefix="/api/import", tags=["import"])
 async def import_bill(
     source: str,
     file: UploadFile = File(...),
-    account_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -32,7 +30,7 @@ async def import_bill(
     if not rows:
         return {"inserted": 0, "skipped": 0, "total": 0, "message": "文件中未找到有效交易记录"}
 
-    result = import_rows(rows, account_id, db, user_id=user_id)
+    result = import_rows(rows, db, user_id=user_id)
     result["message"] = f"导入完成：新增 {result['inserted']} 条，跳过重复 {result['skipped']} 条"
     return result
 

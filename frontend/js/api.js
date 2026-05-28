@@ -1,10 +1,10 @@
-const BASE = 'http://localhost:8000';
+// API 客户端 — 财务自由顾问
+const BASE = '';
 
-// ── Auth token management ──
 const Auth = {
-  getToken: () => localStorage.getItem('finance_token'),
-  setToken: (t) => localStorage.setItem('finance_token', t),
-  clear: () => localStorage.removeItem('finance_token'),
+  getToken: () => localStorage.getItem('fire_token'),
+  setToken: (t) => localStorage.setItem('fire_token', t),
+  clear: () => localStorage.removeItem('fire_token'),
   headers: () => {
     const t = Auth.getToken();
     return t ? { 'Authorization': `Bearer ${t}` } : {};
@@ -20,9 +20,8 @@ async function request(method, path, body) {
   const res = await fetch(BASE + path, opts);
   if (res.status === 204) return null;
   if (res.status === 401) {
-    // 多用户模式下跳登录
     Auth.clear();
-    showLoginModal();
+    window._showLogin && window._showLogin();
     throw new Error('请先登录');
   }
   const data = await res.json();
@@ -31,39 +30,49 @@ async function request(method, path, body) {
 }
 
 const API = {
-  get: (path) => request('GET', path),
-  post: (path, body) => request('POST', path, body),
-  put: (path, body) => request('PUT', path, body),
-  delete: (path) => request('DELETE', path),
+  get:    (path)       => request('GET',    path),
+  post:   (path, body) => request('POST',   path, body),
+  put:    (path, body) => request('PUT',    path, body),
+  delete: (path)       => request('DELETE', path),
 
-  dashboard: (month) => API.get('/api/dashboard/summary' + (month ? `?month=${month}` : '')),
-  trend: (months) => API.get(`/api/dashboard/trend?months=${months || 6}`),
+  // FIRE
+  fireStatus:     ()           => API.get('/api/fire/status'),
+  fireProfile:    ()           => API.get('/api/fire/profile'),
+  updateFireProfile: (body)    => API.put('/api/fire/profile', body),
+  fireProjection: (years = 30) => API.get(`/api/fire/projection?years=${years}`),
+
+  // 交易
   transactions: (params) => API.get('/api/transactions?' + new URLSearchParams(params).toString()),
-  createTxn: (body) => API.post('/api/transactions', body),
-  updateTxn: (id, body) => API.put(`/api/transactions/${id}`, body),
-  deleteTxn: (id) => API.delete(`/api/transactions/${id}`),
-  categories: () => API.get('/api/categories'),
-  accounts: () => API.get('/api/accounts'),
-  createAccount: (body) => API.post('/api/accounts', body),
-  goals: () => API.get('/api/goals'),
-  createGoal: (body) => API.post('/api/goals', body),
-  updateGoal: (id, body) => API.put(`/api/goals/${id}`, body),
-  deleteGoal: (id) => API.delete(`/api/goals/${id}`),
-  budgets: () => API.get('/api/budgets'),
-  upsertBudget: (body) => API.post('/api/budgets', body),
-  deleteBudget: (id) => API.delete(`/api/budgets/${id}`),
-  income: () => API.get('/api/income'),
-  updateIncome: (body) => API.put('/api/income', body),
-  authMe: () => API.get('/api/auth/me'),
-  authLogin: (body) => API.post('/api/auth/login', body),
-  authRegister: (body) => API.post('/api/auth/register', body),
-  aiChat: (body) => API.post('/api/ai/chat', body),
-  aiAnalysis: () => API.post('/api/ai/analysis', {}),
-  aiHistory: () => API.get('/api/ai/history'),
-  aiClearHistory: () => API.delete('/api/ai/history'),
+  createTxn:    (body)   => API.post('/api/transactions', body),
+  updateTxn:    (id, b)  => API.put(`/api/transactions/${id}`, b),
+  deleteTxn:    (id)     => API.delete(`/api/transactions/${id}`),
 
-  emailConfig: () => API.get('/api/email/config'),
-  saveEmailConfig: (body) => API.post('/api/email/config', body),
-  deleteEmailConfig: () => API.delete('/api/email/config'),
-  runEmailSync: () => API.post('/api/email/sync/run', {}),
+  // 分类
+  categories: () => API.get('/api/categories'),
+
+  // 导入
+  importBill: async (source, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${BASE}/api/import/${source}`, {
+      method: 'POST',
+      headers: Auth.headers(),
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '导入失败');
+    return data;
+  },
+  sampleUrl: (source) => `${BASE}/api/import/sample/${source}`,
+
+  // AI
+  aiChat:         (msg)  => API.post('/api/ai/chat', { message: msg }),
+  aiAnalysis:     ()     => API.post('/api/ai/analysis', {}),
+  aiHistory:      ()     => API.get('/api/ai/history'),
+  aiClearHistory: ()     => API.delete('/api/ai/history'),
+
+  // 认证
+  authMe:       ()     => API.get('/api/auth/me'),
+  authLogin:    (body) => API.post('/api/auth/login', body),
+  authRegister: (body) => API.post('/api/auth/register', body),
 };

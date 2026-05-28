@@ -12,7 +12,6 @@ router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
 
 class TransactionCreate(BaseModel):
-    account_id: Optional[int] = None
     category_id: Optional[int] = None
     amount: float
     type: str
@@ -24,7 +23,6 @@ class TransactionCreate(BaseModel):
 
 
 class TransactionUpdate(BaseModel):
-    account_id: Optional[int] = None
     category_id: Optional[int] = None
     amount: Optional[float] = None
     type: Optional[str] = None
@@ -35,7 +33,6 @@ class TransactionUpdate(BaseModel):
 
 class TransactionOut(BaseModel):
     id: int
-    account_id: Optional[int]
     category_id: Optional[int]
     amount: float
     type: str

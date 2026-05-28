@@ -5,12 +5,11 @@ import os
 
 from backend.config import settings
 from backend.database import init_db
-from backend.routers import transactions, accounts, categories, budgets, goals, income, dashboard, ai, imports, auth
-from backend.routers import email_sync
+from backend.routers import transactions, categories, ai, imports, auth, fire
 from backend.routers.categories import seed_categories
 from backend.database import SessionLocal
 
-app = FastAPI(title="AI Finance Advisor", version="0.1.0")
+app = FastAPI(title="财务自由顾问", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,16 +20,12 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
-app.include_router(dashboard.router)
+app.include_router(fire.router)
 app.include_router(transactions.router)
-app.include_router(accounts.router)
 app.include_router(categories.router)
-app.include_router(budgets.router)
-app.include_router(goals.router)
-app.include_router(income.router)
 app.include_router(ai.router)
 app.include_router(imports.router)
-app.include_router(email_sync.router)
+
 
 @app.get("/api/health")
 def health():
@@ -52,7 +47,7 @@ def on_startup():
         db.close()
 
 
-# 前端静态文件 — 必须在所有 API 路由注册后再挂载，API 路由优先匹配
+# 前端静态文件 — 必须在所有 API 路由注册后再挂载
 _frontend = os.path.join(os.path.dirname(__file__), "..", "frontend")
 if os.path.exists(_frontend):
     app.mount("/", StaticFiles(directory=_frontend, html=True), name="frontend")
