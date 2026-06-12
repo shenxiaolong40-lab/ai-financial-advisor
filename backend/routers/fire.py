@@ -16,32 +16,22 @@ router = APIRouter(prefix="/api/fire", tags=["fire"])
 
 def _profile_dict(profile):
     return {
-        "monthly_fixed_income": profile.monthly_fixed_income,
-        "monthly_expense":      profile.monthly_expense,
-        "cash_assets":          profile.cash_assets,
-        "stock_assets":         profile.stock_assets,
-        "real_estate_assets":   profile.real_estate_assets,
-        "other_assets":         profile.other_assets,
-        "cash_return":          profile.cash_return,
-        "stock_return":         profile.stock_return,
-        "real_estate_return":   profile.real_estate_return,
-        "other_return":         profile.other_return,
-        "fire_multiplier":      profile.fire_multiplier,
+        "total_assets":           profile.total_assets,
+        "annual_salary":          profile.annual_salary,
+        "salary_growth_rate":     profile.salary_growth_rate,
+        "annual_fixed_expense":   profile.annual_fixed_expense,
+        "annual_flex_expense":    profile.annual_flex_expense,
+        "annual_return":          profile.annual_return,
     }
 
 
 class FireProfileUpdate(BaseModel):
-    monthly_fixed_income: Optional[float] = None
-    monthly_expense:      Optional[float] = None
-    cash_assets:          Optional[float] = None
-    stock_assets:         Optional[float] = None
-    real_estate_assets:   Optional[float] = None
-    other_assets:         Optional[float] = None
-    cash_return:          Optional[float] = None
-    stock_return:         Optional[float] = None
-    real_estate_return:   Optional[float] = None
-    other_return:         Optional[float] = None
-    fire_multiplier:      Optional[float] = None
+    total_assets:           Optional[float] = None
+    annual_salary:          Optional[float] = None
+    salary_growth_rate:     Optional[float] = None
+    annual_fixed_expense:   Optional[float] = None
+    annual_flex_expense:    Optional[float] = None
+    annual_return:          Optional[float] = None
 
 
 @router.get("/status")
@@ -76,9 +66,9 @@ def update_profile(
 
 @router.get("/projection")
 def fire_projection(
-    years: int = 30,
+    years: int = 35,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
-    points = calculate_projection(db, user_id, years=min(years, 50))
+    points = calculate_projection(db, user_id, years=min(years, 100))
     return {"points": points}

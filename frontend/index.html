@@ -43,24 +43,27 @@
       <div class="fire-progress-label" id="fire-progress-label">¥0 / ¥0（0%）</div>
     </div>
 
-    <!-- 月度收支摘要 -->
+    <!-- 关键指标 -->
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-label">固定月收入</div>
-        <div class="stat-value income" id="stat-fixed-income">—</div>
-        <div class="stat-sublabel" id="stat-invest-income">理财 —</div>
+        <div class="stat-label">月工资</div>
+        <div class="stat-value income" id="stat-salary">—</div>
+        <div class="stat-sublabel" id="stat-salary-sub">年结余 —</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">月均支出 <span class="hint">近3月</span></div>
+        <div class="stat-label">月支出</div>
         <div class="stat-value expense" id="stat-expense">—</div>
+        <div class="stat-sublabel" id="stat-expense-sub">储蓄率 —</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">月储蓄</div>
-        <div class="stat-value" id="stat-savings">—</div>
+        <div class="stat-label">月被动收入</div>
+        <div class="stat-value" id="stat-passive">—</div>
+        <div class="stat-sublabel">资产 × 收益率 / 12</div>
       </div>
       <div class="stat-card highlight">
-        <div class="stat-label">储蓄率</div>
-        <div class="stat-value" id="stat-rate">—</div>
+        <div class="stat-label">被动覆盖率</div>
+        <div class="stat-value" id="stat-coverage">—</div>
+        <div class="stat-sublabel">被动 / 支出</div>
       </div>
     </div>
 
@@ -72,19 +75,11 @@
       </div>
     </div>
 
-    <!-- 双图：支出分类 + 资产配置 -->
-    <div class="dual-chart-row">
-      <div class="card half">
-        <div class="card-title">支出分布</div>
-        <div class="chart-wrap-sm">
-          <canvas id="chart-expense-pie"></canvas>
-        </div>
-      </div>
-      <div class="card half">
-        <div class="card-title">资产配置</div>
-        <div class="chart-wrap-sm" id="asset-pie-wrap">
-          <canvas id="chart-asset-pie"></canvas>
-        </div>
+    <!-- 收益率敏感性 -->
+    <div class="card">
+      <div class="card-title">收益率敏感性分析</div>
+      <div id="sensitivity-wrap" class="sensitivity-wrap">
+        <p class="chart-empty-tip">请先配置资产信息</p>
       </div>
     </div>
 
@@ -97,64 +92,53 @@
     <div style="height:80px"></div>
   </div>
 
-  <!-- ══════════════ PAGE: 收支记录 ══════════════ -->
-  <div id="page-transactions" class="page">
+  <!-- ══════════════ PAGE: 财务自由说明 ══════════════ -->
+  <div id="page-explain" class="page">
     <div class="page-header">
-      <h1>📋 收支记录</h1>
-      <div class="month-nav">
-        <button id="btn-prev-month" class="month-btn">‹</button>
-        <span id="txn-month-label">2026-05</span>
-        <button id="btn-next-month" class="month-btn">›</button>
-      </div>
+      <h1>📖 为什么需要这么多年</h1>
     </div>
 
-    <!-- 月度统计 -->
-    <div class="txn-stats-bar">
-      <div class="txn-stat">
-        <span class="txn-stat-label">收入</span>
-        <span class="txn-stat-val income" id="txn-income-total">¥0</span>
-      </div>
-      <div class="txn-stat">
-        <span class="txn-stat-label">支出</span>
-        <span class="txn-stat-val expense" id="txn-expense-total">¥0</span>
-      </div>
-      <div class="txn-stat">
-        <span class="txn-stat-label">结余</span>
-        <span class="txn-stat-val" id="txn-balance">¥0</span>
-      </div>
+    <!-- 状态占位 -->
+    <div id="explain-loading" class="explain-empty">
+      请先在 🔥 首页 ⚙️ 配置中填入资产、工资和支出信息
     </div>
 
-    <!-- 筛选 -->
-    <div class="txn-filter-row">
-      <div class="filter-tabs">
-        <button class="txn-type-filter active" data-filter="">全部</button>
-        <button class="txn-type-filter" data-filter="expense">支出</button>
-        <button class="txn-type-filter" data-filter="income">收入</button>
-      </div>
-      <input id="txn-search" class="search-input" type="text" placeholder="搜索商户/备注">
-    </div>
+    <!-- 核心内容（有数据时显示） -->
+    <div id="explain-content" style="display:none">
 
-    <!-- CSV 导入区 -->
-    <div class="import-section">
-      <div class="import-title">导入账单</div>
-      <div class="import-row">
-        <input type="file" id="import-file" accept=".csv" class="file-input">
+      <!-- 你的财务参数 -->
+      <div class="card">
+        <div class="card-title">你的财务参数</div>
+        <div id="explain-params" class="explain-params-grid"></div>
       </div>
-      <div class="import-btns">
-        <button id="btn-import-alipay" class="btn btn-outline btn-sm">导入支付宝</button>
-        <button id="btn-import-wechat" class="btn btn-outline btn-sm">导入微信</button>
-        <a href="/api/import/sample/alipay" class="btn btn-ghost btn-sm" download>支付宝示例</a>
-      </div>
-      <div id="import-result" class="import-result"></div>
-    </div>
 
-    <!-- 交易列表 -->
-    <div id="txn-list" class="txn-list"></div>
+      <!-- 现在的位置 -->
+      <div class="card">
+        <div class="card-title">你现在在哪里</div>
+        <div id="explain-current" class="explain-section"></div>
+      </div>
+
+      <!-- 核心逻辑 -->
+      <div class="card">
+        <div class="card-title">财务自由的逻辑</div>
+        <div id="explain-logic" class="explain-section"></div>
+      </div>
+
+      <!-- 关键里程碑 -->
+      <div class="card">
+        <div class="card-title">关键里程碑</div>
+        <div id="explain-milestones" class="explain-section"></div>
+      </div>
+
+      <!-- 如何加速 -->
+      <div class="card">
+        <div class="card-title">收益率对达标年限的影响</div>
+        <div id="explain-sensitivity" class="explain-section"></div>
+      </div>
+
+    </div>
 
     <div style="height:80px"></div>
-
-    <!-- FAB 添加按钮 -->
-    <button id="btn-add-txn" class="fab">＋</button>
   </div>
 
   <!-- ══════════════ PAGE: AI 顾问 ══════════════ -->
@@ -188,9 +172,9 @@
     <span class="nav-icon">🔥</span>
     <span class="nav-label">自由之路</span>
   </button>
-  <button class="nav-item" data-page="transactions">
-    <span class="nav-icon">📋</span>
-    <span class="nav-label">收支记录</span>
+  <button class="nav-item" data-page="explain">
+    <span class="nav-icon">📖</span>
+    <span class="nav-label">自由说明</span>
   </button>
   <button class="nav-item" data-page="ai">
     <span class="nav-icon">🤖</span>
@@ -206,128 +190,38 @@
       <button data-close class="btn-close">×</button>
     </div>
     <div class="modal-body">
-      <div class="form-section-title">收支设置</div>
+      <div class="form-section-title">资产</div>
       <div class="form-group">
-        <label>固定月收入（元）<span class="cfg-hint">工资/副业等</span></label>
-        <input id="cfg-income" type="number" placeholder="20000" min="0">
+        <label>当前可投资总资产（元）<span class="cfg-hint">现金+股票+基金+房产等</span></label>
+        <input id="cfg-total-assets" type="number" placeholder="1000000" min="0">
       </div>
       <div class="form-group">
-        <label>月均支出（元）<span class="cfg-hint">0 = 自动从账单计算</span></label>
-        <input id="cfg-expense" type="number" placeholder="10000" min="0">
+        <label>年化理财收益率（%）<span class="cfg-hint">综合预期，指数基金约7-10%</span></label>
+        <input id="cfg-annual-return" type="number" placeholder="5" min="0" max="30" step="0.1">
       </div>
 
-      <div class="form-section-title">资产 &amp; 各类收益率</div>
-      <div class="cfg-asset-hint">每类资产单独设置预期年化收益率</div>
-
-      <div class="cfg-asset-block">
-        <div class="cfg-asset-label">💵 现金 / 货基</div>
-        <div class="cfg-asset-row">
-          <div class="form-group">
-            <label>金额（元）</label>
-            <input id="cfg-cash" type="number" placeholder="0" min="0">
-          </div>
-          <div class="form-group">
-            <label>年化收益率（%）</label>
-            <input id="cfg-cash-return" type="number" placeholder="2" min="0" max="30" step="0.1">
-          </div>
-        </div>
-      </div>
-
-      <div class="cfg-asset-block">
-        <div class="cfg-asset-label">📈 股票 / 基金</div>
-        <div class="cfg-asset-row">
-          <div class="form-group">
-            <label>金额（元）</label>
-            <input id="cfg-stock" type="number" placeholder="0" min="0">
-          </div>
-          <div class="form-group">
-            <label>年化收益率（%）</label>
-            <input id="cfg-stock-return" type="number" placeholder="8" min="0" max="50" step="0.1">
-          </div>
-        </div>
-      </div>
-
-      <div class="cfg-asset-block">
-        <div class="cfg-asset-label">🏠 房产</div>
-        <div class="cfg-asset-row">
-          <div class="form-group">
-            <label>市值（元）</label>
-            <input id="cfg-realestate" type="number" placeholder="0" min="0">
-          </div>
-          <div class="form-group">
-            <label>年化收益率（%）</label>
-            <input id="cfg-realestate-return" type="number" placeholder="4" min="0" max="30" step="0.1">
-          </div>
-        </div>
-      </div>
-
-      <div class="cfg-asset-block">
-        <div class="cfg-asset-label">💎 债券 / 其他</div>
-        <div class="cfg-asset-row">
-          <div class="form-group">
-            <label>金额（元）</label>
-            <input id="cfg-other" type="number" placeholder="0" min="0">
-          </div>
-          <div class="form-group">
-            <label>年化收益率（%）</label>
-            <input id="cfg-other-return" type="number" placeholder="4" min="0" max="30" step="0.1">
-          </div>
-        </div>
-      </div>
-
-      <div class="form-section-title">FIRE 参数</div>
+      <div class="form-section-title">收入</div>
       <div class="form-group">
-        <label>FIRE 倍数（默认25，即4%法则）</label>
-        <input id="cfg-multiplier" type="number" placeholder="25" min="10" max="50">
+        <label>税后年工资（元）<span class="cfg-hint">工资+副业等固定收入</span></label>
+        <input id="cfg-annual-salary" type="number" placeholder="300000" min="0">
+      </div>
+      <div class="form-group">
+        <label>年工资增长率（%）<span class="cfg-hint">预期每年调薪幅度</span></label>
+        <input id="cfg-salary-growth" type="number" placeholder="5" min="0" max="50" step="0.1">
+      </div>
+
+      <div class="form-section-title">支出</div>
+      <div class="form-group">
+        <label>年刚性支出（元）<span class="cfg-hint">房贷/房租、保险、教育等必须花的钱</span></label>
+        <input id="cfg-fixed-expense" type="number" placeholder="120000" min="0">
+      </div>
+      <div class="form-group">
+        <label>年弹性支出（元）<span class="cfg-hint">餐饮、娱乐、旅行等可调节消费</span></label>
+        <input id="cfg-flex-expense" type="number" placeholder="60000" min="0">
       </div>
     </div>
     <div class="modal-footer">
       <button id="btn-save-config" class="btn btn-primary btn-full">保存</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════ MODAL: 添加/编辑交易 ══════════════ -->
-<div id="modal-txn" class="modal-overlay" style="display:none">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="modal-txn-title">添加记录</h3>
-      <button data-close class="btn-close">×</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="txn-id">
-      <form id="txn-form">
-        <div class="form-group">
-          <label>类型</label>
-          <select id="txn-type">
-            <option value="expense">支出</option>
-            <option value="income">收入</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>金额（元）</label>
-          <input id="txn-amount" type="number" placeholder="0.00" min="0.01" step="0.01" required>
-        </div>
-        <div class="form-group">
-          <label>日期</label>
-          <input id="txn-date" type="date" required>
-        </div>
-        <div class="form-group">
-          <label>分类</label>
-          <select id="txn-category"></select>
-        </div>
-        <div class="form-group">
-          <label>商户</label>
-          <input id="txn-merchant" type="text" placeholder="如：麦当劳">
-        </div>
-        <div class="form-group">
-          <label>备注</label>
-          <input id="txn-description" type="text" placeholder="可选">
-        </div>
-      </form>
-    </div>
-    <div class="modal-footer">
-      <button id="btn-save-txn" class="btn btn-primary btn-full">保存</button>
     </div>
   </div>
 </div>
@@ -361,7 +255,7 @@
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
 <script src="js/fire.js"></script>
-<script src="js/transactions.js"></script>
+<script src="js/explain.js"></script>
 <script src="js/ai.js"></script>
 </body>
 </html>

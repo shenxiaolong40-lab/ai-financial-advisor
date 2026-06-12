@@ -33,16 +33,16 @@ def health():
 
 
 def _migrate_db():
-    """SQLite 字段迁移：新增分类收益率字段"""
+    """SQLite 字段迁移：新增 FIRE 新模型字段，并从旧字段迁移数据"""
     from sqlalchemy import text
     from backend.database import engine
     new_cols = [
-        ("monthly_expense",      10000.0),
-        ("monthly_fixed_income", 0.0),
-        ("cash_return",          0.02),
-        ("stock_return",         0.08),
-        ("real_estate_return",   0.04),
-        ("other_return",         0.04),
+        ("total_assets",         0.0),
+        ("annual_salary",        0.0),
+        ("salary_growth_rate",   0.05),
+        ("annual_fixed_expense", 0.0),
+        ("annual_flex_expense",  0.0),
+        ("annual_return",        0.05),
     ]
     with engine.connect() as conn:
         for col, default in new_cols:
@@ -52,11 +52,27 @@ def _migrate_db():
                 conn.commit()
             except Exception:
                 pass  # 字段已存在，忽略
-        # 将旧 monthly_income 迁移到 monthly_fixed_income（老用户数据保留）
+
+        # 从旧字段迁移数据（仅当新字段仍为默认零值时执行）
         try:
+            # total_assets = 四类资产之和
             conn.execute(text(
-                "UPDATE fire_profiles SET monthly_fixed_income = monthly_income "
-                "WHERE monthly_fixed_income = 0 AND monthly_income > 0"
+                "UPDATE fire_profiles SET total_assets = "
+                "COALESCE(cash_assets,0)+COALESCE(stock_assets,0)+"
+                "COALESCE(real_estate_assets,0)+COALESCE(other_assets,0) "
+                "WHERE total_assets = 0 AND ("
+                "COALESCE(cash_assets,0)+COALESCE(stock_assets,0)+"
+                "COALESCE(real_estate_assets,0)+COALESCE(other_assets,0)) > 0"
+            ))
+            # annual_salary = monthly_fixed_income * 12
+            conn.execute(text(
+                "UPDATE fire_profiles SET annual_salary = monthly_fixed_income * 12 "
+                "WHERE annual_salary = 0 AND COALESCE(monthly_fixed_income,0) > 0"
+            ))
+            # annual_fixed_expense = monthly_expense * 12（旧月均支出全部归入刚性支出）
+            conn.execute(text(
+                "UPDATE fire_profiles SET annual_fixed_expense = monthly_expense * 12 "
+                "WHERE annual_fixed_expense = 0 AND COALESCE(monthly_expense,0) > 0"
             ))
             conn.commit()
         except Exception:

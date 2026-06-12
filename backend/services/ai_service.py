@@ -18,9 +18,11 @@ SYSTEM_PROMPT = """你是一位专注于 FIRE（财务独立、提前退休）�
 - 建议要具体可执行，不讨论与财务自由无关的话题
 - 回复控制在 300 字以内，关键数字用**加粗**
 
-FIRE 基础知识：
-- FIRE 数字 = 年均支出 × 25（4% 安全提取率法则）
-- 储蓄率是最关键的杠杆：储蓄率 50% 约 17 年自由，储蓄率 75% 约 7 年
+FIRE 核心模型：
+- 财务自由 = 被动收入（资产 × 年化收益率）≥ 年度总支出
+- 工资是资产积累的引擎，不是被动收入
+- 通胀率 2.5% 内置，支出和所需资产每年自然增长
+- 储蓄率是最关键的杠杆：储蓄率 50% 约 17 年，储蓄率 75% 约 7 年
 - 资产配置建议：指数基金（全市场/沪深300）长期年化约 7-10%"""
 
 
@@ -35,38 +37,37 @@ def _build_fire_context(db: Session, user_id: int) -> str:
     except Exception:
         return "（暂无财务数据，请先录入收入和资产信息）"
 
-    years_str = f"{status['years_to_fire']} 年" if status['years_to_fire'] is not None else "无法计算（支出超过收入）"
+    if status["already_free"]:
+        years_str = "已实现财务自由 🎉"
+    elif status["years_to_fire"] is None:
+        years_str = "按当前参数 100 年内无法达标"
+    else:
+        years_str = f"{status['years_to_fire']} 年"
 
-    cat_lines = "\n".join(
-        f"  - {c['icon']}{c['name']}: ¥{c['amount']:.0f}/月（{c['pct']}%）"
-        for c in status["category_breakdown"][:6]
-    ) or "  暂无支出数据"
-
-    ab = status["asset_breakdown"]
-    total = status["total_assets"]
-
-    def _fmt_asset(key, label):
-        a = ab.get(key, {})
-        amt = a.get('amount', 0)
-        ret = a.get('return', 0)
-        return f"  {label}：¥{amt:,.0f}（年化 {ret*100:.1f}%）"
+    fd = status.get("fire_detail") or {}
+    sensitivity = status.get("sensitivity", [])
+    sens_lines = "\n".join(
+        f"  收益率 {s['return_rate']}%：{s['years_to_fire']} 年" if s['years_to_fire'] else
+        f"  收益率 {s['return_rate']}%：无法达标"
+        for s in sensitivity
+    )
 
     return (
         f"【用户当前 FIRE 状态】\n"
-        f"FIRE 数字：¥{status['fire_number']:,.0f}（目标净资产）\n"
-        f"当前总资产：¥{total:,.0f}（完成度 {status['progress_pct']}%）\n"
-        + _fmt_asset('cash',        '现金/货基') + "\n"
-        + _fmt_asset('stock',       '股票/基金') + "\n"
-        + _fmt_asset('real_estate', '房产') + "\n"
-        + _fmt_asset('other',       '债券/其他') + "\n"
-        + f"综合加权收益率：{status['weighted_return']}%\n"
-        f"固定月收入（工资/副业）：¥{status['monthly_fixed_income']:,.0f}\n"
-        f"理财月收入（资产×收益率/12）：¥{status['monthly_investment_income']:,.0f}\n"
-        f"月总收入：¥{status['monthly_total_income']:,.0f}\n"
-        f"月均支出（近3月）：¥{status['avg_monthly_expense']:,.0f}\n"
-        f"月储蓄（固定收入-支出）：¥{status['monthly_savings']:,.0f}（固收储蓄率 {status['savings_rate']}%）\n"
-        f"预计财务自由：{years_str}\n\n"
-        f"近3月支出分布：\n{cat_lines}"
+        f"当前总资产：¥{status['total_assets']:,.0f}\n"
+        f"年化理财收益率：{status['annual_return']}%\n"
+        f"当前年被动收入（资产×收益率）：¥{status['current_passive_income']:,.0f}\n"
+        f"被动收入覆盖支出：{status['passive_coverage_pct']}%\n"
+        f"年工资：¥{status['annual_salary']:,.0f}\n"
+        f"年总支出（刚性+弹性）：¥{status['annual_expense']:,.0f}\n"
+        f"  其中刚性支出：¥{status['annual_fixed_expense']:,.0f}\n"
+        f"  其中弹性支出：¥{status['annual_flex_expense']:,.0f}\n"
+        f"年结余（工资-支出）：¥{status['annual_surplus']:,.0f}（储蓄率 {status['savings_rate']}%）\n"
+        f"预计财务自由：{years_str}\n"
+        + (f"达标时资产：¥{fd.get('target_assets',0):,.0f}，"
+           f"被动收入：¥{fd.get('passive_income_at_fire',0):,.0f}，"
+           f"当年支出：¥{fd.get('expense_at_fire',0):,.0f}\n" if fd else "")
+        + f"\n收益率敏感性分析：\n{sens_lines}"
     )
 
 
@@ -154,10 +155,10 @@ async def generate_analysis(db: Session, user_id: int = 1) -> dict:
     analysis_prompt = (
         SYSTEM_PROMPT + "\n\n" + fire_context + "\n\n"
         "请生成一份 FIRE 优化报告，格式：\n"
-        "**核心指标**（1句话总结储蓄率和距离自由年数）\n\n"
+        "**核心指标**（1句话总结当前被动覆盖率、储蓄率和距离自由年数）\n\n"
         "**提升收入**（1条具体建议 + 预期影响）\n\n"
-        "**压缩支出**（从支出分布中找出最值得削减的1-2项，含具体金额和可提前的年数）\n\n"
-        "**资产配置**（根据当前资产结构给出1条调整建议）\n\n"
+        "**压缩支出**（指出弹性支出中最值得削减的方向，含具体金额和可提前的年数）\n\n"
+        "**资产增值**（根据当前收益率给出1条提升建议）\n\n"
         "总字数不超过 300 字。"
     )
 

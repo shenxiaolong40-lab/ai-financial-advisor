@@ -5,7 +5,7 @@ let _categories = null;
 
 // ── 导航 ──────────────────────────────────────────────────────────────────────
 function navigate(page) {
-  const pages = ['fire', 'transactions', 'ai'];
+  const pages = ['fire', 'explain', 'ai'];
   if (!pages.includes(page)) page = 'fire';
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -15,9 +15,9 @@ function navigate(page) {
   currentPage = page;
   location.hash = page;
 
-  if (page === 'fire')         loadFireDashboard();
-  if (page === 'transactions') loadTransactions();
-  if (page === 'ai')           loadAI();
+  if (page === 'fire')    loadFireDashboard();
+  if (page === 'explain') loadExplain();
+  if (page === 'ai')      loadAI();
 }
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
@@ -129,5 +129,5 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const hash = location.hash.replace('#', '');
-  navigate(['fire', 'transactions', 'ai'].includes(hash) ? hash : 'fire');
+  navigate(['fire', 'explain', 'ai'].includes(hash) ? hash : 'fire');
 });

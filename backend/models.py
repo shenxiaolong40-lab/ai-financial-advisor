@@ -52,25 +52,17 @@ class Transaction(Base):
 
 
 class FireProfile(Base):
-    """用户的 FIRE 配置：收入、分类资产、预期收益率"""
+    """用户的 FIRE 配置：资产、工资、支出、收益率"""
     __tablename__ = "fire_profiles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), unique=True)
-    monthly_fixed_income: Mapped[float] = mapped_column(Float, default=0.0)   # 固定收入（工资/副业）
-    monthly_expense: Mapped[float] = mapped_column(Float, default=10000.0)  # 0=自动从账单计算
-    # 分类资产
-    cash_assets: Mapped[float] = mapped_column(Float, default=0.0)          # 现金/货币基金
-    stock_assets: Mapped[float] = mapped_column(Float, default=0.0)         # 股票/基金
-    real_estate_assets: Mapped[float] = mapped_column(Float, default=0.0)   # 房产市值
-    other_assets: Mapped[float] = mapped_column(Float, default=0.0)         # 其他（债券/黄金等）
-    # 分类资产收益率
-    cash_return: Mapped[float] = mapped_column(Float, default=0.02)          # 现金/货基年化收益率
-    stock_return: Mapped[float] = mapped_column(Float, default=0.08)         # 股票/基金年化收益率
-    real_estate_return: Mapped[float] = mapped_column(Float, default=0.04)   # 房产年化收益率
-    other_return: Mapped[float] = mapped_column(Float, default=0.04)         # 债券/其他年化收益率
-    # FIRE 参数
-    fire_multiplier: Mapped[float] = mapped_column(Float, default=25.0)     # 倍数（4%法则=25）
+    total_assets: Mapped[float] = mapped_column(Float, default=0.0)            # A₀ 当前可投资总资产
+    annual_salary: Mapped[float] = mapped_column(Float, default=0.0)           # S  税后年工资
+    salary_growth_rate: Mapped[float] = mapped_column(Float, default=0.05)     # g_s 年工资增长率
+    annual_fixed_expense: Mapped[float] = mapped_column(Float, default=0.0)    # E_fixed 年刚性支出（房贷/保险等）
+    annual_flex_expense: Mapped[float] = mapped_column(Float, default=0.0)     # E_flex  年弹性支出（餐饮/娱乐等）
+    annual_return: Mapped[float] = mapped_column(Float, default=0.05)          # r 综合年化理财收益率
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user: Mapped["User"] = relationship(back_populates="fire_profile")
