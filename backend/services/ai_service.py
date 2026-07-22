@@ -52,16 +52,21 @@ def _build_fire_context(db: Session, user_id: int) -> str:
         for s in sensitivity
     )
 
+    ds = status.get("data_source") or {}
+    src_cn = {"transactions": "近3月交易记录年化", "manual": "手动配置", "none": "未填写"}
+    income_src = src_cn.get(ds.get("income"), "未知")
+    expense_src = src_cn.get(ds.get("expense"), "未知")
+
     return (
         f"【用户当前 FIRE 状态】\n"
         f"当前总资产：¥{status['total_assets']:,.0f}\n"
         f"年化理财收益率：{status['annual_return']}%\n"
         f"当前年被动收入（资产×收益率）：¥{status['current_passive_income']:,.0f}\n"
         f"被动收入覆盖支出：{status['passive_coverage_pct']}%\n"
-        f"年工资：¥{status['annual_salary']:,.0f}\n"
-        f"年总支出（刚性+弹性）：¥{status['annual_expense']:,.0f}\n"
-        f"  其中刚性支出：¥{status['annual_fixed_expense']:,.0f}\n"
-        f"  其中弹性支出：¥{status['annual_flex_expense']:,.0f}\n"
+        f"年工资：¥{status['annual_salary']:,.0f}（数据来源：{income_src}）\n"
+        f"年总支出：¥{status['annual_expense']:,.0f}（数据来源：{expense_src}）\n"
+        f"  其中手动配置刚性支出：¥{status['annual_fixed_expense']:,.0f}\n"
+        f"  其中手动配置弹性支出：¥{status['annual_flex_expense']:,.0f}\n"
         f"年结余（工资-支出）：¥{status['annual_surplus']:,.0f}（储蓄率 {status['savings_rate']}%）\n"
         f"预计财务自由：{years_str}\n"
         + (f"达标时资产：¥{fd.get('target_assets',0):,.0f}，"

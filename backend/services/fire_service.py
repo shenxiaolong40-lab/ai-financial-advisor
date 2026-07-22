@@ -63,6 +63,35 @@ def _expense_by_category(db: Session, user_id: int, months: int = 3) -> list[dic
     return result
 
 
+def _recent_monthly_avg(db: Session, user_id: int, tx_type: str, months: int = 3) -> float:
+    """
+    近 N 个月某类交易的月均值。
+    tx_type: 'income' 或 'expense'。
+    按"实际有交易的日历月"数平均（避免空月份稀释）。
+    返回 0 表示无数据。
+    """
+    today = date.today()
+    yr, mo = today.year, today.month - months
+    while mo <= 0:
+        mo += 12
+        yr -= 1
+    start = date(yr, mo, 1)
+
+    txns = db.query(Transaction).filter(
+        Transaction.user_id == user_id,
+        Transaction.type == tx_type,
+        Transaction.date >= start,
+        Transaction.date <= today,
+    ).all()
+
+    if not txns:
+        return 0.0
+
+    total = sum(t.amount for t in txns)
+    active_months = len({(t.date.year, t.date.month) for t in txns})
+    return total / active_months
+
+
 def _simulate(A0: float, S: float, g_s: float, E: float, r: float,
               max_years: int = MAX_YEARS) -> tuple[int | None, list[dict]]:
     """
@@ -107,13 +136,36 @@ def calculate_fire_status(db: Session, user_id: int) -> dict:
     p = get_or_create_profile(db, user_id)
 
     A0 = p.total_assets
-    S = p.annual_salary
     g_s = p.salary_growth_rate
-    E_fixed = p.annual_fixed_expense
-    E_flex = p.annual_flex_expense
     r = p.annual_return
 
-    E = E_fixed + E_flex
+    # 优先用交易表聚合值（近3月平均×12年化），无数据则降级到手动配置
+    tx_monthly_expense = _recent_monthly_avg(db, user_id, "expense", months=3)
+    tx_monthly_income = _recent_monthly_avg(db, user_id, "income", months=3)
+
+    E_tx = tx_monthly_expense * 12
+    S_tx = tx_monthly_income * 12
+
+    E_fixed = p.annual_fixed_expense
+    E_flex = p.annual_flex_expense
+    E_manual = E_fixed + E_flex
+    S_manual = p.annual_salary
+
+    use_tx_expense = E_tx > 0
+    use_tx_income = S_tx > 0
+
+    E = E_tx if use_tx_expense else E_manual
+    S = S_tx if use_tx_income else S_manual
+
+    data_source = {
+        "expense": "transactions" if use_tx_expense else ("manual" if E_manual > 0 else "none"),
+        "income":  "transactions" if use_tx_income  else ("manual" if S_manual > 0 else "none"),
+        "tx_monthly_expense": round(tx_monthly_expense, 2),
+        "tx_monthly_income":  round(tx_monthly_income, 2),
+        "manual_annual_expense": round(E_manual, 2),
+        "manual_annual_salary":  round(S_manual, 2),
+    }
+
     current_passive = A0 * r
     already_free = (E > 0) and (current_passive >= E)
 
@@ -171,6 +223,7 @@ def calculate_fire_status(db: Session, user_id: int) -> dict:
         "fire_detail": fire_detail,
         "sensitivity": sensitivity,
         "category_breakdown": _expense_by_category(db, user_id),
+        "data_source": data_source,
     }
 
 

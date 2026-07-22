@@ -38,7 +38,19 @@ curl http://localhost:8000/api/health
 
 ### 数据模型（`backend/models.py`）
 
-4张表：`User` → `Transaction`（支出/收入记录）、`Category`（预设10类）、`FireProfile`（月收入 + 4类资产 + FIRE 参数）、`AISession`（对话历史）。`Transaction` 上有 `UniqueConstraint("sync_source", "sync_id")` 用于 CSV 导入去重。
+4张表：`User` → `Transaction`（支出/收入记录，CSV 导入落地）、`Category`（预设10类）、`FireProfile`（FIRE 参数，含总资产/年薪/刚性支出/弹性支出/收益率）、`AISession`（对话历史）。`Transaction` 上有 `UniqueConstraint("sync_source", "sync_id")` 用于 CSV 导入去重。
+
+### 收支数据流（`fire_service.py:calculate_fire_status`）
+
+**优先级：交易记录聚合 > 手动配置 > 空**
+
+- 收入：若 `Transaction` 表近3月有 `type=income` 记录 → 用月均×12 作为 `S`；否则用 `FireProfile.annual_salary`
+- 支出：同上逻辑 → 用月均×12 作为 `E`；否则用 `FireProfile.annual_fixed_expense + annual_flex_expense`
+- 月均按"实际有交易的日历月"数平均（`active_months`），避免空月份稀释
+- 响应包含 `data_source` 字段：`{income: transactions|manual|none, expense: ...}`，前端在"自由说明"页展示
+- AI 上下文（`ai_service._build_fire_context`）也注入数据来源标签
+
+**前端无收支列表页** — 交易记录仅通过 CSV 导入 API（`/api/import/{alipay|wechat}`）入库，无 UI 查看；FIRE 配置模态框仅作为交易数据缺失时的降级输入。
 
 ### 路由结构（从11个精简为5个）
 
@@ -60,16 +72,16 @@ System prompt 专注 FIRE 顾问角色；每次请求从 `fire_service.calculate
 
 ### 前端结构（3页 SPA）
 
-`frontend/index.html` 包含3个页面 + 2个模态框（FIRE配置、添加交易）。静态文件由 FastAPI 在根路径 `/` 挂载，**必须在所有 API 路由注册之后再挂载**。
+`frontend/index.html` 包含3个页面（🔥自由之路 / 📖自由说明 / 🤖AI 顾问）+ 2个模态框（FIRE 配置、登录）。**前端无收支列表页** — 收支数据通过 FIRE 配置模态框手动填写年度刚性/弹性支出。静态文件由 FastAPI 在根路径 `/` 挂载，**必须在所有 API 路由注册之后再挂载**。
 
 | JS 文件 | 职责 |
 |---------|------|
 | `api.js` | HTTP 请求封装，含 Auth token 管理 |
 | `app.js` | 3页导航、toast、模态框、分类缓存 |
-| `fire.js` | FIRE 仪表盘：英雄区、进度条、预测曲线、双图、AI 预览 |
-| `transactions.js` | 收支列表、CRUD、CSV 导入 |
+| `fire.js` | FIRE 仪表盘：英雄区、进度条、预测曲线、敏感性分析、AI 预览 |
+| `explain.js` | 财务自由说明页：参数展示、里程碑、敏感性解读 |
 | `ai.js` | FIRE 顾问对话、一键分析报告 |
 
-### CSV 导入链路
+### CSV 导入链路（后端保留，前端未开放）
 
-`routers/imports.py` → `services/sync_service.py`（解析支付宝/微信 CSV 为 `ParsedRow` → 按 `CATEGORY_KEYWORDS` 自动归类 → 去重写入）。导入后月均支出自动更新，FIRE 计算随之变化。
+`routers/imports.py` → `services/sync_service.py`（解析支付宝/微信 CSV 为 `ParsedRow` → 按 `CATEGORY_KEYWORDS` 自动归类 → 去重写入 `Transaction` 表）。导入后 `Transaction` 数据进入 FIRE 计算（见上方"收支数据流"），FIRE 状态随之变化。前端无收支列表页，但交易数据通过 FIRE 计算结果反映在仪表盘和说明页上。

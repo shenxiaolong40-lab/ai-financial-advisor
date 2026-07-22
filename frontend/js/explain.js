@@ -46,6 +46,21 @@ function renderParams(s, profile) {
       <span class="explain-param-value">${value}</span>
     </div>
   `).join('');
+
+  // 数据来源徽章
+  const ds = s.data_source || {};
+  const srcLabel = (k) => {
+    const v = ds[k];
+    if (v === 'transactions') return '来自近3月交易记录';
+    if (v === 'manual')       return '来自手动配置';
+    return '未填写';
+  };
+  const txInfo = ds.expense === 'transactions' || ds.income === 'transactions'
+    ? `<div class="explain-data-source">
+         收入数据：${srcLabel('income')} · 支出数据：${srcLabel('expense')}
+       </div>`
+    : '';
+  el.insertAdjacentHTML('beforeend', txInfo);
 }
 
 // ── 现在的位置 ────────────────────────────────────────────────────────────────
